@@ -5,16 +5,22 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
 }
 
-export function formatPrice(price: number | null | undefined): string {
-    if (price === null || price === undefined || isNaN(price)) {
-        return "€0.00"
+export function formatPrice(price: number | string | null | undefined): string {
+    const amount = Number(price)
+
+    if (!Number.isFinite(amount)) {
+        return "\u20AC0.00"
     }
-    return `€${price.toFixed(2)}`
+
+    return `\u20AC${amount.toFixed(2)}`
 }
 
-export function formatPricePerSqm(price: number | null | undefined): string {
-    if (price === null || price === undefined || isNaN(price)) {
-        return "€0.00 /m²"
+export function formatPricePerSqm(price: number | string | null | undefined): string {
+    const amount = Number(price)
+
+    if (!Number.isFinite(amount)) {
+        return "\u20AC0.00 /m\u00B2"
     }
-    return `€${price.toFixed(2)} /m²`
+
+    return `\u20AC${amount.toFixed(2)} /m\u00B2`
 }

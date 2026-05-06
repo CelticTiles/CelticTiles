@@ -3,6 +3,14 @@ import { redirect } from "next/navigation"
 import OrdersListClient, { OrderListItem } from "./OrdersListClient"
 import { createServerSupabase } from "@/lib/supabase/server"
 
+type OrderItemRow = {
+  product_id: string
+  product_name: string
+  quantity: number
+  unit_price: number | string
+  subtotal: number | string
+}
+
 type OrderRow = {
   id: string
   order_number: string
@@ -10,34 +18,49 @@ type OrderRow = {
   customer_email: string
   customer_phone: string | null
   status: string
-  total: string
+  total: string | number | null
   created_at: string
   delivery_address: Record<string, string> | null
-  items: Array<{ product_id: string; product_name: string; quantity: number; unit_price: number; subtotal: number }> | null
+  items: OrderItemRow[] | null
 }
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
 export const revalidate = 0
+
+async function getProductNameMap(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  orders: OrderRow[]
+) {
+  const productIds = [
+    ...new Set(
+      orders.flatMap((order) =>
+        (order.items ?? []).map((item) => item.product_id).filter(Boolean)
+      )
+    ),
+  ]
+
+  if (productIds.length === 0) {
+    return new Map<string, string>()
+  }
+
+  const { data } = await supabase
+    .from("products")
+    .select("id, name")
+    .in("id", productIds)
+
+  return new Map((data ?? []).map((product) => [product.id, product.name]))
+}
 
 export default async function OrdersListPage() {
   const session = await getServerSession()
 
-  // Allow both admin and sales roles
   if (!session || (session.userRole !== "admin" && session.userRole !== "sales")) {
     redirect("/")
   }
 
-  // ✅ Use server-side client (properly authenticated)
   const supabase = await createServerSupabase()
 
-  // TODO: Implement sales-specific order filtering
-  // Currently, sales users see all orders (same as admin)
-  // To filter by sales person, you need to:
-  // 1. Add a 'created_by_user_id' field to the orders table
-  // 2. Set this field when orders are created by sales/admin users
-  // 3. Uncomment the filter below:
-  
-  let query = supabase
+  const { data: orders, error } = await supabase
     .from("orders")
     .select(`
       id,
@@ -52,38 +75,30 @@ export default async function OrdersListPage() {
       delivery_address,
       items
     `)
-
-  // FOR FUTURE: Filter orders created by this sales person
-  // if (session.userRole === "sales") {
-  //   query = query.eq("created_by_user_id", session.userId)
-  // }
-
-  const { data: orders, error } = await query
     .order("created_at", { ascending: false })
     .returns<OrderRow[]>()
 
-
-
   if (error) {
-    console.error('[Admin Orders] ❌ Database error:', error)
+    console.error("[Admin Orders] Database error:", error)
     throw new Error(`Failed to load orders: ${error.message}`)
   }
 
-  if (!orders || orders.length === 0) {
-    console.warn('[Admin Orders] ⚠️ No orders found in database')
-  }
+  const productNameMap = await getProductNameMap(supabase, orders ?? [])
 
-  const mappedOrders: OrderListItem[] = (orders ?? []).map(o => ({
-    id: o.id,
-    orderNumber: o.order_number,
-    customerName: o.customer_name,
-    customerEmail: o.customer_email,
-    customerPhone: o.customer_phone ?? null,
-    status: o.status,
-    total: o.total,
-    createdAt: o.created_at,
-    deliveryAddress: o.delivery_address ?? null,
-    items: o.items ?? [],
+  const mappedOrders: OrderListItem[] = (orders ?? []).map((order) => ({
+    id: order.id,
+    orderNumber: order.order_number,
+    customerName: order.customer_name,
+    customerEmail: order.customer_email,
+    customerPhone: order.customer_phone ?? null,
+    status: order.status,
+    total: order.total ?? 0,
+    createdAt: order.created_at,
+    deliveryAddress: order.delivery_address ?? null,
+    items: (order.items ?? []).map((item) => ({
+      ...item,
+      product_name: item.product_name || productNameMap.get(item.product_id) || "",
+    })),
   }))
 
   return <OrdersListClient orders={mappedOrders} />

@@ -12,7 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Search, Filter, ShoppingBag } from "lucide-react"
-import { TableSkeleton } from "@/components/admin/TableSkeleton"
 import { Pagination } from "@/components/admin/Pagination"
 import { EmptyState } from "@/components/admin/EmptyState"
 import { usePagination } from "@/hooks/usePagination"
@@ -24,10 +23,10 @@ export type OrderListItem = {
   customerEmail: string
   customerPhone: string | null
   status: string
-  total: string
+  total: number | string
   createdAt: string
   deliveryAddress: Record<string, string> | null
-  items: Array<{ product_id: string; product_name: string; quantity: number; unit_price: number; subtotal: number }>
+  items: Array<{ product_id: string; product_name: string; quantity: number; unit_price: number | string; subtotal: number | string }>
 }
 
 export default function OrdersListClient({
@@ -62,7 +61,7 @@ export default function OrdersListClient({
           customerEmail: row.customer_email,
           customerPhone: row.customer_phone ?? null,
           status: row.status,
-          total: String(row.total),
+          total: row.total,
           createdAt: row.created_at,
           deliveryAddress: row.delivery_address ?? null,
           items: Array.isArray(row.items) ? row.items : [],

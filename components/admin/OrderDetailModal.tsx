@@ -4,12 +4,12 @@ import { useState } from "react"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -24,13 +24,40 @@ import { formatOrderDate, getValidNextStatuses } from "@/lib/order-utils"
 import { useOrders } from "@/hooks/useOrders"
 import { useStore } from "@/hooks/useStore"
 import { toast } from "sonner"
-import { Eye, X } from "lucide-react"
 import type { OrderListItem } from "@/app/admin/orders/list/OrdersListClient"
 
 interface OrderDetailModalProps {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
   order: OrderListItem
+}
+
+function getItemName(item: {
+  product_name?: string
+  name?: string
+}) {
+  return item.product_name || item.name || "Unknown product"
+}
+
+function getItemSubtotal(item: {
+  subtotal?: number | string | null
+  unit_price?: number | string | null
+  quantity?: number | string | null
+}) {
+  const subtotal = Number(item.subtotal)
+
+  if (Number.isFinite(subtotal) && subtotal > 0) {
+    return subtotal
+  }
+
+  const unitPrice = Number(item.unit_price)
+  const quantity = Number(item.quantity)
+
+  if (Number.isFinite(unitPrice) && Number.isFinite(quantity)) {
+    return unitPrice * quantity
+  }
+
+  return 0
 }
 
 export function OrderDetailModal({
@@ -74,6 +101,9 @@ export function OrderDetailModal({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
+          <DialogDescription className="sr-only">
+            View order details, customer information, items, and update the order status.
+          </DialogDescription>
           <div className="flex items-center justify-between w-full pr-4">
             <div>
               <DialogTitle className="text-2xl">
@@ -149,11 +179,11 @@ export function OrderDetailModal({
                       {order.items.map((item, idx) => (
                         <tr key={idx} className="border-b last:border-0">
                           <td className="py-2.5 pr-4">
-                            <p className="font-medium">{item.product_name}</p>
+                            <p className="font-medium">{getItemName(item)}</p>
                           </td>
                           <td className="py-2.5 text-center text-muted-foreground">{item.quantity}</td>
                           <td className="py-2.5 text-right text-muted-foreground">{formatPrice(item.unit_price)}</td>
-                          <td className="py-2.5 text-right font-medium">{formatPrice(item.subtotal)}</td>
+                          <td className="py-2.5 text-right font-medium">{formatPrice(getItemSubtotal(item))}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -172,7 +202,7 @@ export function OrderDetailModal({
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-muted-foreground">Order Total</span>
                 <span className="font-semibold text-lg text-primary">
-                  {formatPrice(typeof order.total === 'string' ? parseFloat(order.total) : order.total)}
+                  {formatPrice(order.total)}
                 </span>
               </div>
               <div className="text-sm text-muted-foreground">
