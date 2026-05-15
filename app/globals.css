@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================
+   DESIGN TOKENS (UNCHANGED API)
+========================================================= */
+@layer base {
+  :root {
+    /* Brand - Burgundy from logo */
+    --primary-burgundy: 0 78% 39%;
+    --primary-burgundy-light: 0 78% 49%;
+    --primary-burgundy-dark: 0 78% 29%;
+
+    --accent-gold: 43 49% 58%;
+    --accent-gold-light: 43 49% 68%;
+    --accent-gold-dark: 43 49% 48%;
+
+    /* Neutrals */
+    --neutral-white: 0 0% 100%;
+    --neutral-off-white: 30 20% 97%;
+    --neutral-light: 30 10% 95%;
+    --neutral-grey: 0 0% 45%;
+    --neutral-border: 30 10% 88%;
+    --neutral-dark: 0 0% 13%;
+
+    /* Neumorphism - Refined cooler palette */
+    --neu-bg: 210 20% 92%;
+    --neu-light: 0 0% 100%;
+    --neu-dark: 210 20% 84%;
+    --neu-shadow-raised:
+      8px 8px 16px hsl(var(--neu-dark)), -8px -8px 16px hsl(var(--neu-light));
+    --neu-shadow-inset:
+      inset 4px 4px 8px hsl(var(--neu-dark)),
+      inset -4px -4px 8px hsl(var(--neu-light));
+
+    /* shadcn compatibility - Using burgundy as primary instead of green */
+    --background: var(--neu-bg);
+    --foreground: 222 47% 11%;
+    --card: var(--neu-bg);
+    --card-foreground: 222 47% 11%;
+    --popover: var(--neu-bg);
+    --popover-foreground: 222 47% 11%;
+    --muted: 210 20% 88%;
+    --muted-foreground: 222 20% 32%;
+    --primary: 0 78% 39%; /* Burgundy red from logo */
+    --primary-foreground: 210 40% 98%;
+    --accent: var(--neu-bg);
+    --accent-foreground: 222 47% 11%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142 76% 36%;
+    --error: 0 84% 60%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 0 78% 39%; /* Match primary burgundy */
+    --radius: 1.5rem;
+  }
+
+  body {
+    background: hsl(var(--neu-bg));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    border-color: hsl(var(--border) / 0.5);
+  }
+}
+
+/* =========================================================
+   NEUMORPHIC UTILITIES
+   ========================================================= */
+@layer components {
+  .neu-raised {
+    background: hsl(var(--neu-bg));
+    box-shadow: var(--neu-shadow-raised);
+    border: 1px solid hsl(var(--neu-light) / 0.4);
+  }
+
+  .neu-inset {
+    background: hsl(var(--neu-bg));
+    box-shadow: var(--neu-shadow-inset);
+    border: none;
+  }
+
+  /* Specific refinements for components */
+  .bg-white,
+  .bg-card {
+    background: hsl(var(--neu-bg)) !important;
+    box-shadow: var(--neu-shadow-raised);
+    border: none !important;
+  }
+
+  /* Neumorphic nav item — flat by default, raised on hover */
+  .neu-nav-item:not([style*="inset"]):hover {
+    box-shadow:
+      3px 3px 6px hsl(var(--neu-dark)),
+      -3px -3px 6px hsl(var(--neu-light));
+    background: hsl(var(--neu-bg));
+  }
+
+  input,
+  textarea,
+  select {
+    background: hsl(var(--neu-bg)) !important;
+    box-shadow: var(--neu-shadow-inset) !important;
+    border: none !important;
+    border-radius: 0.5rem !important;
+  }
+
+  .shadow-premium {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  }
+}
+
+/* =========================================================
+   PERFORMANCE & ACCESSIBILITY
+========================================================= */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+.bg-card,
+.bg-white {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Swiper: allow vertical shadows, hide horizontal overflow */
+.swiper {
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+}
+
+.swiper-wrapper {
+  overflow-y: visible !important;
+}
+
+.swiper-slide {
+  overflow: visible !important;
+}
+
+.swiper-slide {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+/* Reduce placeholder opacity for better distinction from entered text */
+input::placeholder,
+textarea::placeholder {
+  opacity: 0.7;
+}
+
+/* Hide number input spinners everywhere */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}

@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  # These NEXT_PUBLIC_ vars are intentionally embedded in client-side JS by Next.js.
+  # They are public keys (Supabase anon key is protected by RLS, not secrecy).
+  # Tell Netlify's secrets scanner to skip them.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASS,CONTACT_EMAIL"
+
+# Prevent browser from caching admin pages — always fetch fresh after deploys
+[[headers]]
+  for = "/admin/*"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+

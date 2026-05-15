@@ -1,0 +1,157 @@
+# Environment variables
+.env.local
+.env.*.local
+.env
+
+# Node modules
+node_modules/
+package-lock.json
+npm-debug.log
+yarn.lock
+yarn-error.log
+
+# Next.js
+.claude/
+.next/
+out/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# Build artifacts
+dist/
+build/
+.turbo/
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.env.*.local
+
+# Testing
+__tests__/
+*.test.js
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.ts
+*.spec.tsx
+jest.config.js
+jest.setup.js
+test-db.js
+test_admin_debug.log
+test_output.log
+addresstest.js
+customerbuytest.js
+editproducttest.js
+reviewstest.js
+salesroletest.js
+
+# Scripts and utilities (development only)
+scripts/
+addproduct.js
+analyze_excel.js
+analyze_reviews.js
+check-cats.js
+check-p-data.js
+check-profile.js
+create-profile-for-user.js
+diag-cols.js
+diagnose-addresses-saving.js
+diagnose-profile-issue.js
+generate-product-sql.js
+verify-oauth-setup.js
+verify-orders-addresses.js
+
+# Documentation and temp files
+*.md
+!README.md
+production-readiness/
+COMPLETE_SESSION_FIXES_SUMMARY.txt
+NEXTJS_15_PARAMS_FIX_PROOF.txt
+PRODUCT_MANAGEMENT_COMPLETE.md
+Products List_V2.xlsx
+~$*.xlsx
+~$*.xls
+~$*.doc*
+~$*.ppt*
+temp-output.css
+eslint-report.json
+eng.traineddata
+
+# Database files
+*.sql
+*.csv
+
+# Python virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Misc
+*.log
+*.swp
+*.swo
+*~
+.cache/
+.parcel-cache/
+
+# Local development
+.env.development.local
+.env.test.local
+.env.production.local
+~$Products List_V2.xlsx
+
+# Additional test/debug scripts
+test-stripe-webhook.js
+
+# SQL seed/migration files (managed via Supabase dashboard)
+sql/
+
+# Data dumps
+products_json.md
+
+# Dev proxy
+proxy.ts
+
+# Watchman
+.watchmanconfig
+
+# Generated type declarations
+globals.d.ts
+
+# Documentation & audit files (not needed in repo)
+ADMIN_PORTAL_IMPLEMENTATION_SUMMARY.md
+FEATURE_IMPLEMENTATION_ROADMAP.md
+IMPLEMENTATION_SUMMARY.md
+NEWSLETTER_IMPLEMENTATION_COMPLETE.md
+PAYMENT_FLOW_DIAGRAM.md
+PRODUCTION_HARDENING_AUDIT.md
+QUICK_DEPLOY.md
+REDEPLOY_EDGE_FUNCTION.md
+SALES_ROLE_IMPLEMENTATION.md
+SETUP_CHECKLIST.md
+STATIC_CODE_AUDIT.md
+STRIPE_CURRENCY_FIX_VALIDATION.md
+STRIPE_IMPLEMENTATION_COMPLETE.md
+STRIPE_INTEGRATION_COMPLETE.md
+STRIPE_QUICK_REFERENCE.md
+STRIPE_WEBHOOK_SETUP.md
+TROUBLESHOOTING.md
+deploy-edge-function.md
+
+# Supabase directory
+supabase/
