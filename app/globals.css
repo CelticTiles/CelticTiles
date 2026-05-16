@@ -31,8 +31,8 @@
     --neu-shadow-raised:
       8px 8px 16px hsl(var(--neu-dark)), -8px -8px 16px hsl(var(--neu-light));
     --neu-shadow-inset:
-      inset 4px 4px 8px hsl(var(--neu-dark)),
-      inset -4px -4px 8px hsl(var(--neu-light));
+      inset 6px 6px 12px hsl(var(--neu-dark)),
+      inset -6px -6px 12px hsl(var(--neu-light));
 
     /* shadcn compatibility - Using burgundy as primary instead of green */
     --background: var(--neu-bg);
@@ -105,10 +105,10 @@
   input,
   textarea,
   select {
-    background: hsl(var(--neu-bg)) !important;
-    box-shadow: var(--neu-shadow-inset) !important;
-    border: none !important;
-    border-radius: 0.5rem !important;
+    background: hsl(var(--neu-bg));
+    box-shadow: var(--neu-shadow-inset);
+    border: none;
+    border-radius: 0.5rem;
   }
 
   .shadow-premium {

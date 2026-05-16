@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 import { searchProductsForQuote } from "@/lib/quotation-actions";
 import { useCategories } from "@/hooks/useCategories";
+import { createWorker } from "tesseract.js";
+import { normaliseOcrText } from "@/lib/ocr-utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -574,19 +576,44 @@ export default function GRNPage() {
     setOcrWarning(null);
 
     try {
-      const form = new FormData();
-      form.append("image", file);
-      const res = await fetch("/api/admin/inventory/grn/ocr", {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      });
-      const payload = await readJsonResponse<{ raw_text?: string; confidence?: number; error?: string }>(res);
-      const ocrPayload = payload as { raw_text?: string; confidence?: number; error?: string };
-      if (!res.ok) throw new Error(ocrPayload?.error || "OCR failed");
-      
-      const text = ocrPayload.raw_text || "";
-      const confidence = ocrPayload.confidence ?? 0;
+      let text = "";
+      let confidence = 0;
+
+      if (file.type.startsWith("image/")) {
+        // --- Client Side Image OCR ---
+        // Using Tesseract on the client avoids Netlify's 10s function timeout
+        // and 6MB payload limits.
+        let worker: any = null;
+        try {
+          worker = await createWorker("eng", 1, {
+            logger: m => console.log("[Tesseract.js]", m),
+          });
+          const { data } = await worker.recognize(file);
+          text = normaliseOcrText(data.text);
+          confidence = Math.round(data.confidence || 0);
+        } catch (tessErr: any) {
+          console.error("[Tesseract.js Error]", tessErr);
+          throw new Error(`Image OCR failed: ${tessErr.message || tessErr}`);
+        } finally {
+          if (worker) await worker.terminate();
+        }
+      } else {
+        // --- Server Side PDF Scan ---
+        // PDFs are usually fast and processed via pdfreader on the server
+        const form = new FormData();
+        form.append("image", file);
+        const res = await fetch("/api/admin/inventory/grn/ocr", {
+          method: "POST",
+          credentials: "include",
+          body: form,
+        });
+        const payload = await readJsonResponse<{ raw_text?: string; confidence?: number; error?: string }>(res);
+        const ocrPayload = payload as { raw_text?: string; confidence?: number; error?: string };
+        if (!res.ok) throw new Error(ocrPayload?.error || "OCR failed");
+        
+        text = ocrPayload.raw_text || "";
+        confidence = ocrPayload.confidence ?? 0;
+      }
 
       if (!text.trim()) {
         setOcrError("No text was detected. Try a clearer image or a digital PDF.");
@@ -602,8 +629,9 @@ export default function GRNPage() {
         toast.success("Text extracted successfully!");
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "OCR failed";
-      setOcrError(message);
+      console.error("[GRN OCR ERROR]", err);
+      const message = err instanceof Error ? `${err.name}: ${err.message}` : typeof err === 'string' ? err : JSON.stringify(err);
+      setOcrError(`OCR failed: ${message}. Try checking the browser console for more details.`);
     } finally {
       setIsOcrRunning(false);
     }

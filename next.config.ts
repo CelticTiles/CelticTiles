@@ -60,8 +60,9 @@ const nextConfig: NextConfig = {
       "img-src 'self' data: blob: https:",
       "font-src 'self' data: https://fonts.gstatic.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      `script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ''}`,
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://tessdata.projectnaptha.com",
+      "worker-src 'self' blob: https://cdn.jsdelivr.net",
       "upgrade-insecure-requests",
     ].join('; ')
 

@@ -199,14 +199,14 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
               }
             }}
             placeholder="Search for tiles..."
-            className="w-full pl-12 pr-4 h-12 bg-transparent neu-inset border-none rounded-full ring-0 focus-visible:ring-1 focus-visible:ring-primary/20"
+            className="w-full pl-12 pr-4 h-12 bg-transparent neu-inset border-none rounded-full focus-visible:ring-2 focus-visible:ring-primary/20 transition-all text-slate-800"
           />
         </div>
       </form>
 
       {/* Autocomplete Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-white border border-border rounded-md shadow-lg max-h-80 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-4 bg-[#E5E9F0] rounded-[1.5rem] neu-raised max-h-80 overflow-y-auto border-none animate-in fade-in slide-in-from-top-2">
           <div className="p-2">
             {isLoading ? (
               <div className="px-3 py-4 text-center text-sm text-muted-foreground">
@@ -224,8 +224,8 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
                       <Link
                         key={category.id}
                         href={`/${category.slug}`}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors ${
-                          index === selectedIndex ? "bg-gray-100" : ""
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                          index === selectedIndex ? "neu-inset" : "hover:neu-inset"
                         }`}
                         onClick={() => {
                           setIsOpen(false);
@@ -270,8 +270,8 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
                         <Link
                           key={product.id}
                           href={`/product/${product.slug}`}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors ${
-                            adjustedIndex === selectedIndex ? "bg-gray-100" : ""
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                            adjustedIndex === selectedIndex ? "neu-inset" : "hover:neu-inset"
                           }`}
                           onClick={() => {
                             setIsOpen(false);

@@ -185,9 +185,8 @@ export function SiteHeader({
                 </div>
               </Link>
 
-              {/* Search Bar - Desktop */}
               <div className="hidden md:block flex-1 max-w-2xl mx-4">
-                <div className="relative neu-inset rounded-full bg-white/40 p-1">
+                <div className="relative">
                   <SearchAutocomplete
                     onSearch={(query) => router.push(`/search?q=${query}`)}
                   />
@@ -299,7 +298,7 @@ export function SiteHeader({
 
         {/* Mobile Search - Slide down or integrated */}
         <div className="md:hidden bg-[#E5E9F0] px-4 py-3 border-b border-white/20">
-          <div className="relative neu-inset rounded-full bg-white/40 p-1">
+          <div className="relative">
             <SearchAutocomplete
               onSearch={(query) => router.push(`/search?q=${query}`)}
             />
