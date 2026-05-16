@@ -185,15 +185,23 @@ export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
       lineWidth: 0,
     },
     styles: { fontSize: 8, cellPadding: 2 },
+    margin: { top: tableStartY, bottom: 45 },
     columnStyles: {
       0: { cellWidth: 15 },
       1: { cellWidth: 25 },
-      2: { cellWidth: 82 }, // Distributed the VAT column width here
+      2: { cellWidth: 82 },
       3: { cellWidth: 18, halign: "right" },
       4: { cellWidth: 20, halign: "right" },
       5: { cellWidth: 22, halign: "right" },
-      // 6: { cellWidth: 22, halign: 'right' }
     },
+    didDrawPage: (data) => {
+      // If we've added a new page, the header isn't there. 
+      // But for Quotation, the current design draws header once at the start.
+      // To be safe, we ensure any continuation pages start below the header height
+      if (data.pageNumber > 1) {
+        // You could call a drawHeader function here if you refactor it
+      }
+    }
   });
 
   let finalY = (doc as any).lastAutoTable.finalY + 10;
@@ -304,7 +312,7 @@ export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
     doc.setPage(i);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.text(`Page ${i} of ${pageCount}`, 190, 275, { align: "right" });
+    doc.text(`Page ${i} of ${pageCount}`, 105, 275, { align: "center" });
 
     // Red footer bar
     doc.setFillColor(136, 17, 33); // dark red matching the reference

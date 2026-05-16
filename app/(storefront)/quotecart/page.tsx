@@ -52,37 +52,43 @@ export default function QuoteCartPage() {
       try {
         const stored = sessionStorage.getItem("quoteCart")
         if (!stored) {
+          console.error("[QuoteCart] No quote data found in sessionStorage")
           toast.error("No quote data found. Please go back to the quotation.")
           router.push("/admin/quotations")
           return
         }
-        const parsed: QuoteData = JSON.parse(stored)
-        const productItems = parsed.items.filter(i => i.type === "product")
 
-        // Fetch images for items that are missing image_url
+        const parsed: QuoteData = JSON.parse(stored)
+        // Set basic data immediately so the UI doesn't hang on the spinner
+        setQuoteData(parsed)
+
+        const productItems = parsed.items.filter(i => i.type === "product")
         const missingIds = productItems
           .filter(i => !i.image_url && i.product_id)
           .map(i => i.product_id as string)
 
         if (missingIds.length > 0) {
+          console.log("[QuoteCart] Fetching missing product images...", missingIds)
           const supabase = getSupabaseBrowserClient()
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from("products")
             .select("id, image")
             .in("id", missingIds)
 
-          if (data) {
+          if (error) {
+            console.error("[QuoteCart] Supabase image fetch error:", error)
+          } else if (data) {
             const imageMap = Object.fromEntries(data.map(p => [p.id, p.image]))
-            parsed.items = parsed.items.map(item =>
+            const updatedItems = parsed.items.map(item =>
               item.type === "product" && item.product_id && imageMap[item.product_id]
                 ? { ...item, image_url: imageMap[item.product_id] }
                 : item
             )
+            setQuoteData({ ...parsed, items: updatedItems as QuoteItem[] })
           }
         }
-
-        setQuoteData(parsed)
-      } catch {
+      } catch (err) {
+        console.error("[QuoteCart] Critical load error:", err)
         toast.error("Failed to load quote data.")
         router.push("/admin/quotations")
       }

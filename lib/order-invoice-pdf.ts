@@ -196,7 +196,7 @@ function drawFooter(doc: jsPDF, order: InvoiceOrderData, pageNum: number, totalP
     format(new Date(order.created_at), "dd/MM/yyyy HH:mm:ss"),
     pw / 2, pmY, { align: "center" }
   )
-  doc.text(`Page ${pageNum} of ${totalPages}`, pw - MARGIN, pmY, { align: "right" })
+  doc.text(`Page ${pageNum} of ${totalPages}`, pw / 2, pmY + 4, { align: "center" })
 
   // Red footer bar
   const barY = ph - 10
@@ -268,7 +268,7 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
     },
     // Stop the table before the footer zone on every page
     // margin.top = header height so continuation pages start below redrawn header
-    margin: { top: tableStartY, bottom: FOOTER_H + 10, left: MARGIN, right: MARGIN },
+    margin: { top: tableStartY, bottom: FOOTER_H + 15, left: MARGIN, right: MARGIN },
     didDrawPage: (data) => {
       if (data.pageNumber > 1) {
         const newStartY = drawHeader(doc, logoDataUri, order)

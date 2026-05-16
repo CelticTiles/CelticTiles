@@ -284,7 +284,7 @@ export function QuotationViewer({ quotation }: QuotationViewerProps) {
               onClick={handleConvertToSale}
               className="neu-raised text-white border-transparent hover:text-white"
             >
-              Proceed to In-store Checkout
+              Proceed to Checkout
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
             <p className="text-[10px] text-muted-foreground italic ml-1">
