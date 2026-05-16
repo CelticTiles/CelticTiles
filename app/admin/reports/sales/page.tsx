@@ -176,16 +176,22 @@ export default function SalesReportPage() {
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="overflow-hidden border-none shadow-premium bg-gradient-to-br from-primary to-[#2a2a45] text-white">
-          <CardContent className="p-6 relative">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-              <TrendingUp className="w-16 h-16" />
+        <Card className="shadow-premium border-none">
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-muted-foreground font-medium uppercase tracking-wider text-xs">Gross Revenue</p>
+                <h3 className="text-3xl font-bold mt-2 text-slate-900">{formatPrice(metrics.totalRevenue)}</h3>
+              </div>
+              <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                <TrendingUp className="w-6 h-6" />
+              </div>
             </div>
-            <p className="text-primary-foreground/80 font-medium uppercase tracking-wider text-xs">Gross Revenue</p>
-            <h3 className="text-3xl font-bold mt-2">{formatPrice(metrics.totalRevenue)}</h3>
-            <div className="mt-4 flex items-center text-xs font-medium bg-white/10 w-fit px-2 py-1 rounded-full">
-              <TrendingUp className="w-3 h-3 mr-1" />
-              {dateRange === 'all' ? 'All time high' : `vs last ${dateRange}`}
+            <div className="mt-4">
+              <div className="flex items-center text-xs font-medium text-muted-foreground">
+                <TrendingUp className="w-3 h-3 mr-1 text-primary" />
+                <span>{dateRange === 'all' ? 'All time high' : `vs last ${dateRange}`}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
