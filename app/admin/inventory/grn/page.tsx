@@ -641,12 +641,7 @@ export default function GRNPage() {
     const linkedRows = rows.filter((r) => r.product_id);
     const unknownRows = rows.filter((r) => !r.product_id);
 
-    if (linkedRows.length === 0) {
-      toast.error(
-        "At least one item must be linked to a product before saving.",
-      );
-      return;
-    }
+    
 
     const invalidQty = linkedRows.filter(
       (r) => !r.received_qty || r.received_qty <= 0,
@@ -661,8 +656,14 @@ export default function GRNPage() {
     // Prepare payload for confirmation
     const payload = {
       raw_text: "",
-      items: rows
-        .filter((r) => r.product_id)
+      items: rows.map((r) => ({
+  product_id: r.product_id,
+  name: r.name || r.vendor_name,
+  sku: r.sku,
+  expected_qty: r.expected_qty,
+  received_qty: r.received_qty,
+  price: r.price,
+}))
         .map((r) => ({
           product_id: r.product_id,
           name: r.name,
@@ -982,7 +983,7 @@ export default function GRNPage() {
                 <th className="px-4 py-3 w-32">Code/SKU</th>
                 <th className="px-4 py-3 w-48">Name</th>
                 <th className="px-4 py-3 w-24 text-center">Price</th>
-                <th className="px-4 py-3 w-24 text-center">Stock</th>
+                {/* <th className="px-4 py-3 w-24 text-center">Stock</th> */}
                 <th className="px-4 py-3 w-28 text-center">Expected</th>
                 <th className="px-4 py-3 w-28 text-center">Received</th>
                 <th className="px-4 py-3 w-28 text-center">Diff</th>
@@ -1040,7 +1041,7 @@ export default function GRNPage() {
                       />
                     </td>
                     {/* Stock */}
-                    <td className="px-4 py-3">
+                    {/* <td className="px-4 py-3">
                       <Input
                         type="number"
                         min={0}
@@ -1054,7 +1055,7 @@ export default function GRNPage() {
                         placeholder="Stock"
                         className={`w-20 text-center mx-auto ${isUnlinked ? "border-amber-400/50" : ""}`}
                       />
-                    </td>
+                    </td> */}
                     {/* Expected Qty */}
                     <td className="px-4 py-3">
                       <Input
@@ -1296,6 +1297,7 @@ export default function GRNPage() {
             >
               Reset
             </Button>
+
             <Button
               id="grn-save-btn"
               type="button"
@@ -1303,6 +1305,7 @@ export default function GRNPage() {
               disabled={isSaving}
               className="neu-raised border-transparent text-white hover:text-white min-w-[120px]"
             >
+              
               {isSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

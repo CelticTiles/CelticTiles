@@ -29,97 +29,111 @@ export async function POST(req: Request) {
     let createdCount = 0
     let updatedCount = 0
 
-    for (const item of items) {
-      let productId = item.product_id
-      let currentStock = 0
-      const receivedQty = Number(item.received_qty) || 0
-      const price = Number(item.price) || null
+    const unmatchedItems: any[] = [];
 
-      // 1. ATTEMPT MATCH if not linked
+    for (const item of items) {
+      let productId = item.product_id;
+      let currentStock = 0;
+      const receivedQty = Number(item.received_qty) || 0;
+      const price = Number(item.price) || null;
+
+      // Attempt to match existing product if not already linked
       if (!productId) {
-        // Try SKU match
-        if (item.sku) {
-          const { data: skuMatch } = await supabase
-            .from("products")
-            .select("id, stock")
-            .eq("assigned_code", item.sku)
-            .single()
-          
-          if (skuMatch) {
-            productId = skuMatch.id
-            currentStock = skuMatch.stock || 0
+        // First, try to find a matching alias (SKU or name) in product_aliases
+        const aliasValue = item.sku || item.name;
+        if (aliasValue) {
+          // const { data: aliasMatch } = await supabase
+          //   .from('product_aliases')
+          //   .select('product_id')
+          //   .eq('alias', aliasValue)
+          //   .single()
+          const { data: aliasMatch } = await supabase
+  .from("product_aliases")
+  .select("product_id")
+  .eq("alias", aliasValue)
+  .maybeSingle();
+
+if (aliasMatch?.product_id) {
+  productId = aliasMatch.product_id;
+}
+            // .catch(() => ({ data: null }));
+          // If an alias match was found, fetch its current stock
+          if (productId && !currentStock) {
+            const { data: prodStock } = await supabase
+              .from('products')
+              .select('stock')
+              .eq('id', productId)
+              .maybeSingle();
+            currentStock = prodStock?.stock || 0;
           }
         }
 
-        // Try Name match if SKU failed
+        // If still no productId, fall back to SKU matching
+        if (!productId && item.sku) {
+          const { data: skuMatch } = await supabase
+            .from('products')
+            .select('id, stock')
+            .eq('assigned_code', item.sku)
+            .maybeSingle();
+          if (skuMatch) {
+            productId = skuMatch.id;
+            currentStock = skuMatch.stock || 0;
+            // Record alias for future fast lookup
+            await supabase.from('product_aliases').insert([{ product_id: productId, alias: item.sku }]);
+          }
+        }
+
+        // If still no productId, try matching by name
         if (!productId && item.name) {
           const { data: nameMatch } = await supabase
-            .from("products")
-            .select("id, stock")
-            .ilike("name", item.name)
-            .single()
-          
+            .from('products')
+            .select('id, stock')
+            // .ilike('name', item.name)
+            .ilike("name", `%${item.name}%`)
+            .maybeSingle();
           if (nameMatch) {
-            productId = nameMatch.id
-            currentStock = nameMatch.stock || 0
+            productId = nameMatch.id;
+            currentStock = nameMatch.stock || 0;
+            // Record alias for future fast lookup
+            await supabase.from('product_aliases').insert([{ product_id: productId, alias: item.name }]);
           }
         }
       } else {
-        // Fetch current stock for linked item
+        // Linked product – fetch its current stock
         const { data: linkedProd } = await supabase
-          .from("products")
-          .select("stock")
-          .eq("id", productId)
-          .single()
-        currentStock = linkedProd?.stock || 0
+          .from('products')
+          .select('stock')
+          .eq('id', productId)
+          .maybeSingle();
+        currentStock = linkedProd?.stock || 0;
       }
 
-      // 2. CREATE NEW PRODUCT if still no match
+      // If still no product match, collect for user decision
       if (!productId) {
-        const baseSlug = slugify(item.name || "new-product")
-        const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`
-        
-        const { data: newProd, error: createError } = await supabase
-          .from("products")
-          .insert([
-            {
-              name: item.name || "Unnamed Product",
-              slug: uniqueSlug,
-              assigned_code: item.sku || null,
-              price: price,
-              stock: receivedQty, // Initial stock is the received qty
-              status: "active"
-            }
-          ])
-          .select("id")
-          .single()
-
-        if (createError) {
-          console.error("Failed to create product:", createError)
-          // Continue to next item but log error
-          processedItems.push({ ...item, error: "Failed to create product" })
-          continue
-        }
-
-        productId = newProd.id
-        createdCount++
-      } else {
-        // 3. UPDATE EXISTING STOCK
-        const { error: updateError } = await supabase
-          .from("products")
-          .update({ 
-            stock: currentStock + receivedQty,
-            // Optionally update price if provided and not set
-            ...(price && { price }) 
-          })
-          .eq("id", productId)
-
-        if (updateError) {
-          processedItems.push({ ...item, error: "Failed to update stock" })
-          continue
-        }
-        updatedCount++
+        unmatchedItems.push({
+          name: item.name,
+          sku: item.sku,
+          received_qty: receivedQty,
+          price,
+        });
+        continue;
       }
+
+      // Update stock for matched product
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({
+          stock: currentStock + receivedQty,
+          ...(price && { price }),
+        })
+        .eq("id", productId);
+
+      if (updateError) {
+        processedItems.push({ ...item, error: "Failed to update stock" });
+        continue;
+      }
+
+      updatedCount++;
 
       processedItems.push({
         product_id: productId,
@@ -127,9 +141,23 @@ export async function POST(req: Request) {
         sku: item.sku || null,
         expected_qty: item.expected_qty || receivedQty,
         received_qty: receivedQty,
-        discrepancy: receivedQty - (item.expected_qty || receivedQty)
-      })
+        discrepancy: receivedQty - (item.expected_qty || receivedQty),
+      });
     }
+
+    // If there are unmatched items, return them for user action
+    if (unmatchedItems.length > 0) {
+      return NextResponse.json({
+        success: false,
+        message: "Some items could not be matched",
+        unmatched: unmatchedItems,
+        processed: processedItems.length,
+        updated: updatedCount,
+      }, { status: 200 });
+    }
+
+    console.log("Processed Items", processedItems);
+    console.log("Unmatched Items", unmatchedItems);
 
     // 4. LOG THE GRN
     await supabase.from("grn_logs").insert([
