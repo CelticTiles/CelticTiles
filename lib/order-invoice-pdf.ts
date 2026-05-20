@@ -250,7 +250,7 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
     head: [["Total Qty", "Code", "Description", "Unit Price", "Amount", "VAT"]],
     body: rows,
     theme: "plain",
-    styles: { fontSize: 8, cellPadding: 1.8, overflow: "linebreak" },
+    styles: { fontSize: 8, cellPadding: 1.2, overflow: "linebreak" },
     headStyles: {
       textColor: [0, 0, 0],
       fillColor: [255, 255, 255],

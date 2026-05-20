@@ -184,8 +184,8 @@ export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
       textColor: [0, 0, 0] as [number, number, number],
       lineWidth: 0,
     },
-    styles: { fontSize: 8, cellPadding: 2 },
-    margin: { top: tableStartY, bottom: 45 },
+    styles: { fontSize: 8, cellPadding: 1.2 },
+    margin: { top: 20, bottom: 30 },
     columnStyles: {
       0: { cellWidth: 15 },
       1: { cellWidth: 25 },
@@ -207,8 +207,8 @@ export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
   let finalY = (doc as any).lastAutoTable.finalY + 10;
 
   // If the totals/notes section won't fit on the current page, add a new page
-  // Adjusted threshold from 270 to 220 to avoid overlap with red footer (starting at 277)
-  if (finalY + 55 > 220) {
+  // The red footer starts at 277, so we need totals (height 52) to end before 275.
+  if (finalY + 55 > 270) {
     doc.addPage();
     finalY = 20;
   }
