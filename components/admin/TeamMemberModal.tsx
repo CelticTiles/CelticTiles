@@ -22,7 +22,6 @@ import {
 import { Loader2, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { TeamMember } from "@/hooks/useTeamMembers"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 interface TeamMemberModalProps {
   isOpen: boolean
@@ -105,34 +104,20 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
     setIsSubmitting(true)
 
     try {
-      const supabase = getSupabaseBrowserClient()
-
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession()
-
-      if (sessionError || !session?.access_token) {
-        throw new Error("Authentication required")
-      }
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/bright-handler`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            id: isEditMode ? member?.id : undefined,
-            full_name: formData.full_name,
-            email: formData.email,
-            role: formData.role,
-            password: isEditMode ? undefined : formData.password,
-          }),
-        }
-      )
+      const response = await fetch("/api/admin/team", {
+        method: isEditMode ? "PATCH" : "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: isEditMode ? member?.id : undefined,
+          full_name: formData.full_name,
+          email: formData.email,
+          role: formData.role,
+          password: isEditMode ? undefined : formData.password,
+        }),
+      })
 
       const result = await response.json()
 
