@@ -207,16 +207,16 @@ export async function sendTicketAssignmentEmail({
     const transporter = createTransporter()
 
     await transporter.sendMail({
-      from: \`"Celtic Tiles CRM" <\${process.env.SMTP_USER}>\`,
+      from: `"Celtic Tiles CRM" <${process.env.SMTP_USER}>`,
       to: assigneeEmail,
-      subject: \`Task Assigned: \${ticketTitle}\`,
+      subject: `Task Assigned: ${ticketTitle}`,
       html,
     })
 
-    console.log(\`[Email] ✅ Sent ticket assignment to \${assigneeEmail} for "\${ticketTitle}"\`)
+    console.log(`[Email] ✅ Sent ticket assignment to ${assigneeEmail} for "${ticketTitle}"`)
     return { success: true }
   } catch (err: any) {
-    console.error(\`[Email] ❌ Failed to send ticket assignment to \${assigneeEmail}:\`, err.message)
+    console.error(`[Email] ❌ Failed to send ticket assignment to ${assigneeEmail}:`, err.message)
     return { success: false, error: err.message }
   }
 }
