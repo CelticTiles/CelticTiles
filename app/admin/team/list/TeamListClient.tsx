@@ -29,6 +29,7 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
   const [resetPasswordId, setResetPasswordId] = useState<string | null>(null)
@@ -63,14 +64,20 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
   }
 
   const handleDeleteMember = async (id: string) => {
+    if (isDeleting) return
+    setIsDeleting(true)
     try {
       await deleteTeamMember(id)
       setDeleteId(null)
       if (currentMembers.length === 1 && currentPage > 1) {
         setCurrentPage(currentPage - 1)
       }
+      toast.success('Team member deleted successfully')
     } catch (err: any) {
       console.error('Delete error:', err)
+      toast.error(err?.message || 'Failed to delete team member')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -250,8 +257,9 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
       <DeleteConfirmDialog
         isOpen={!!deleteId}
         title="Delete Team Member"
-        description="Are you sure you want to delete this team member? This action cannot be undone."
-        itemName="team member"
+        description="Are you sure you want to delete this team member?"
+        itemName={teamMembers.find(m => m.id === deleteId)?.name || teamMembers.find(m => m.id === deleteId)?.email || ""}
+        isLoading={isDeleting}
         onConfirm={() => deleteId && handleDeleteMember(deleteId)}
         onCancel={() => setDeleteId(null)}
       />

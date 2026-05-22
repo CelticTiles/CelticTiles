@@ -9,12 +9,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Loader2 } from "lucide-react"
 
 interface DeleteConfirmDialogProps {
   isOpen: boolean
   title: string
   description: string
   itemName: string
+  isLoading?: boolean
   onConfirm: () => void
   onCancel: () => void
 }
@@ -24,11 +26,12 @@ export function DeleteConfirmDialog({
   title,
   description,
   itemName,
+  isLoading = false,
   onConfirm,
   onCancel
 }: DeleteConfirmDialogProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !isLoading && onCancel()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -43,10 +46,11 @@ export function DeleteConfirmDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} disabled={isLoading}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm}>
+          <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Delete
           </Button>
         </DialogFooter>

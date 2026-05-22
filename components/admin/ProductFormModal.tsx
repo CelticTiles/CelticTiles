@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Product } from "@/hooks/useProducts"
 import { useCategories } from "@/hooks/useCategories"
-import { Loader2 } from "lucide-react"
+import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
 import { ProductImageUpload, ProductImage } from "@/components/admin/ProductImageUpload"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
@@ -30,6 +30,7 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
   const [isLoadingProduct, setIsLoadingProduct] = useState(false)
   const [productImages, setProductImages] = useState<ProductImage[]>([])
   const [createdProductId, setCreatedProductId] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   // Form State
   const [formData, setFormData] = useState({
@@ -154,11 +155,12 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
             panel_width: "",
             package_included: "",
             has_led: false,
-            is_clearance: false // ✅ Default to false for new products
+            is_clearance: false
         })
         setProductImages([])
         setCreatedProductId(null)
     }
+    setErrorMessage(null)
   }, [product, isOpen])
 
   const handleChange = (field: string, value: string | boolean) => {
@@ -168,6 +170,7 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setErrorMessage(null)
 
     try {
         const payload = {
@@ -208,7 +211,6 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
             if (newProduct?.id) {
               setCreatedProductId(newProduct.id)
               toast.success("Product created! You can now add images.")
-              // Don't close - let user add images
               return
             }
             toast.success("Product created successfully")
@@ -217,7 +219,9 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
         await onSave?.()
         onClose()
     } catch (error: unknown) {
-        toast.error(error instanceof Error ? error.message : "Failed to save product")
+        const msg = error instanceof Error ? error.message : "Failed to save product"
+        setErrorMessage(msg)
+        toast.error(msg)
     } finally {
         setIsSubmitting(false)
     }
@@ -298,7 +302,23 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
             </div>
           ) : (
           <>
-          
+
+          {/* Inline error */}
+          {errorMessage && (
+            <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {/* Inline success after creation */}
+          {createdProductId && (
+            <div className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>Product created! You can now add images below, then click Done.</span>
+            </div>
+          )}
+
           {/* Section 1: Identity */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -569,14 +589,14 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
           {!product && !createdProductId && (
             <div className="border-t pt-4 mt-4">
               <p className="text-sm text-muted-foreground">
-                💡 Create the product first, then you can add images.
+                Images can be added after the product is created.
               </p>
             </div>
           )}
 
 
         <DialogFooter>
-          <Button variant="outline" type="button" onClick={onClose} disabled={isSubmitting}>
+          <Button variant="outline" type="button" onClick={createdProductId ? async () => { await onSave?.(); onClose() } : onClose} disabled={isSubmitting}>
             {createdProductId ? "Done" : "Cancel"}
           </Button>
           {!createdProductId && (

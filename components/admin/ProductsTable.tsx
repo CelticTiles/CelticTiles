@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Product } from "@/hooks/useProducts"
 import {
   Table,
@@ -15,6 +16,7 @@ import { Pencil, Trash2, Eye } from "lucide-react"
 import Link from "next/link"
 import { formatPrice } from "@/lib/utils"
 import Image from "next/image"
+import { DeleteConfirmDialog } from "@/components/admin/DeleteConfirmDialog"
 
 interface ProductsTableProps {
   products: Product[]
@@ -23,99 +25,122 @@ interface ProductsTableProps {
 }
 
 export function ProductsTable({ products, onDelete, onEdit }: ProductsTableProps) {
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
+
+  const handleConfirmDelete = () => {
+    if (deleteTarget) {
+      onDelete(deleteTarget.id)
+      setDeleteTarget(null)
+    }
+  }
+
   return (
-    <div className="rounded-md border border-border">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/50">
-            <TableHead className="w-[80px]">Image</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead className="text-right">Price</TableHead>
-            <TableHead className="text-center">Stock</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {products.map((product) => {
-            if (!product) return null;
-            return (
-              <TableRow key={product.id || Math.random()}>
-              <TableCell>
-                <div className="relative w-10 h-10 rounded overflow-hidden bg-muted">
-                    {product.image ? (
-                        <Image 
-                            src={product.image}
-                            alt={product.name}
-                            fill
-                            sizes="40px"
-                            className="object-cover"
-                            unoptimized
-                        />
-                    ) : (
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-xs text-gray-400">
-                            No Image
-                        </div>
-                    )}
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="font-medium">{product.name}</div>
-                <div className="text-xs text-muted-foreground truncate max-w-[200px]">{product.assigned_code || 'No Code'}</div>
-              </TableCell>
-              <TableCell className="capitalize">
-                {product.categoryName || "Uncategorized"}
-              </TableCell>
-              <TableCell className="text-right font-medium">
-                {formatPrice(product.price)}
-              </TableCell>
-              <TableCell className="text-center">
-                <Badge variant={product.stock <= 5 ? "destructive" : "outline"}>
-                   {product.stock}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Badge variant={product.status === 'active' ? 'success' : 'secondary'}>
-                  {product.status}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center justify-end gap-2">
-                  <Button variant="ghost" size="icon" asChild className="hover:text-muted-foreground">
-                    <Link href={`/product/${product.slug}`} aria-label={`Preview ${product.name}`}>
-                        <Eye className="w-4 h-4 text-muted-foreground" />
-                    </Link>
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => onEdit(product)}
-                    aria-label={`Edit ${product.name}`}
-                    className="hover:text-orange-500"
-                  >
-                    <Pencil className="w-4 h-4 text-orange-500" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => {
-                        if (confirm('Are you sure you want to delete this product?')) {
-                            onDelete(product.id)
-                        }
-                    }}
-                    aria-label={`Delete ${product.name}`}
-                    className="hover:text-red-500"
-                   >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </Button>
-                </div>
-              </TableCell>
+    <>
+      <div className="rounded-md border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="w-[80px]">Image</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead className="text-right">Price</TableHead>
+              <TableHead className="text-center">Stock</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {products.map((product) => {
+              if (!product) return null
+              return (
+                <TableRow key={product.id || Math.random()}>
+                  <TableCell>
+                    <div className="relative w-10 h-10 rounded overflow-hidden bg-muted">
+                      {product.image ? (
+                        <Image
+                          src={product.image}
+                          alt={product.name}
+                          fill
+                          sizes="40px"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-xs text-gray-400">
+                          No Image
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{product.name}</div>
+                    <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                      {product.assigned_code || "No Code"}
+                    </div>
+                  </TableCell>
+                  <TableCell className="capitalize">
+                    {product.categoryName || "Uncategorized"}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatPrice(product.price)}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={product.stock <= 5 ? "destructive" : "outline"}>
+                      {product.stock}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={product.status === "active" ? "success" : "secondary"}>
+                      {product.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        asChild
+                        className="hover:text-muted-foreground"
+                      >
+                        <Link href={`/product/${product.slug}`} aria-label={`Preview ${product.name}`}>
+                          <Eye className="w-4 h-4 text-muted-foreground" />
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEdit(product)}
+                        aria-label={`Edit ${product.name}`}
+                        className="hover:text-orange-500"
+                      >
+                        <Pencil className="w-4 h-4 text-orange-500" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeleteTarget(product)}
+                        aria-label={`Delete ${product.name}`}
+                        className="hover:text-red-500"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <DeleteConfirmDialog
+        isOpen={!!deleteTarget}
+        title="Delete Product"
+        description={`Are you sure you want to delete "${deleteTarget?.name}"?`}
+        itemName={deleteTarget?.name ?? ""}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
+    </>
   )
 }

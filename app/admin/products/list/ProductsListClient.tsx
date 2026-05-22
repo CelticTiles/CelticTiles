@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useProducts, Product } from "@/hooks/useProducts"
+import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProductsTable } from "@/components/admin/ProductsTable"
 import { Input } from "@/components/ui/input"
@@ -64,6 +65,17 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
     }
     setIsModalOpen(false)
     setSelectedProduct(null)
+    toast.success(selectedProduct ? "Product updated successfully" : "Product created successfully")
+  }
+
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await deleteProduct(id)
+      setProducts(prev => prev.filter(p => p.id !== id))
+      toast.success("Product deleted successfully")
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete product")
+    }
   }
   
   const filteredProducts = useMemo(() => {
@@ -186,9 +198,9 @@ export default function ProductsListClient({ initialProducts }: ProductsListClie
                 />
               ) : (
                 <>
-                  <ProductsTable 
-                    products={currentProducts as any} 
-                    onDelete={deleteProduct} 
+                  <ProductsTable
+                    products={currentProducts as any}
+                    onDelete={handleDeleteProduct}
                     onEdit={handleEditProduct}
                   />
                   {totalPages > 1 && (

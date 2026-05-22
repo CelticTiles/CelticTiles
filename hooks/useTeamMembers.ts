@@ -94,137 +94,76 @@ export function useTeamMembers() {
   }, [fetchTeamMembers])
 
   async function addTeamMember(member: Omit<TeamMember, 'id' | 'created_at'> & { password: string }) {
-    // Create Supabase Auth account first
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: member.email,
-      password: member.password,
-      email_confirm: true,
-      user_metadata: {
+    const response = await fetch('/api/admin/team', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         full_name: member.full_name,
-        role: member.role
-      }
+        email: member.email,
+        role: member.role,
+        password: member.password,
+      }),
     })
 
-    if (authError) throw authError
-    if (!authData.user) throw new Error('Failed to create user')
-
-    // Get role_id from role name
-    const roleResult = await (supabase
-      .from('roles') as any)
-      .select('id')
-      .eq('name', member.role)
-      .single()
-    const { data: roleData } = roleResult || {}
-
-    if (!roleData) throw new Error(`Role ${member.role} not found`)
-
-    // Create profile with auth user id
-    const insertResult = await (supabase
-      .from('profiles') as any)
-      .insert([{
-        id: authData.user.id,
-        email: member.email,
-        full_name: member.full_name,
-        role_id: roleData.id,
-        permissions: member.permissions
-      }])
-      .select(`
-        id,
-        email,
-        full_name,
-        permissions,
-        created_at,
-        role:roles(name)
-      `)
-      .single()
-    const { data, error } = insertResult || {}
-
-    if (error) throw error
-    
-    const transformed = {
-      id: data.id,
-      email: data.email,
-      full_name: data.full_name,
-      name: data.full_name || '',
-      role: ((data as any).role?.name || 'sales') as 'admin' | 'sales',
-      permissions: data.permissions,
-      created_at: data.created_at
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(result?.error || `Failed to create team member (${response.status})`)
     }
-    
-    setTeamMembers(prev => [transformed, ...prev])
-    return transformed
+
+    await fetchTeamMembers()
   }
 
   async function updateTeamMember(id: string, updates: Partial<TeamMember>) {
-    const updateData: any = {}
-    
-    if (updates.full_name !== undefined) updateData.full_name = updates.full_name
-    if (updates.permissions !== undefined) updateData.permissions = updates.permissions
-    
-    // If role is being updated, get role_id
-    if (updates.role) {
-      const updateRoleResult = await (supabase
-        .from('roles') as any)
-        .select('id')
-        .eq('name', updates.role)
-        .single()
-      const { data: roleData } = updateRoleResult || {}
-      
-      if (roleData) updateData.role_id = roleData.id
-    }
-
-    const updateResult = await (supabase
-      .from('profiles') as any)
-      .update(updateData)
-      .eq('id', id)
-      .select(`
+    const member = teamMembers.find(m => m.id === id)
+    const response = await fetch('/api/admin/team', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         id,
-        email,
-        full_name,
-        permissions,
-        created_at,
-        role:roles(name)
-      `)
-      .single()
-    const { data, error } = updateResult || {}
+        full_name: updates.full_name ?? member?.full_name ?? '',
+        email: updates.email ?? member?.email ?? '',
+        role: updates.role ?? member?.role ?? 'sales',
+      }),
+    })
 
-    if (error) throw error
-    
-    const transformed = {
-      id: data.id,
-      email: data.email,
-      full_name: data.full_name,
-      name: data.full_name || '',
-      role: ((data as any).role?.name || 'sales') as 'admin' | 'sales',
-      permissions: data.permissions,
-      created_at: data.created_at
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(result?.error || `Update failed (${response.status})`)
     }
-    
-    setTeamMembers(prev => prev.map(m => m.id === id ? transformed : m))
-    return transformed
+
+    await fetchTeamMembers()
   }
 
   async function deleteTeamMember(id: string) {
-    // Delete auth user first
-    const { error: authError } = await supabase.auth.admin.deleteUser(id)
-    if (authError) console.error('Auth delete error:', authError)
+    const response = await fetch('/api/admin/team', {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
 
-    // Delete profile
-    const deleteResult = await (supabase
-      .from('profiles') as any)
-      .delete()
-      .eq('id', id)
-    const { error } = deleteResult || {}
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(result?.error || `Delete failed (${response.status})`)
+    }
 
-    if (error) throw error
     setTeamMembers(prev => prev.filter(m => m.id !== id))
   }
 
   async function resetTeamMemberPassword(userId: string, newPassword: string) {
-    const { error } = await supabase.auth.admin.updateUserById(userId, {
-      password: newPassword
+    const response = await fetch('/api/admin/team/reset-password', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: userId, password: newPassword }),
     })
-    if (error) throw error
+
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(result?.error || `Password reset failed (${response.status})`)
+    }
   }
 
   return {
