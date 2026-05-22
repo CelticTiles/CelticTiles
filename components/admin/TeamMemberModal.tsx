@@ -49,6 +49,20 @@ const INITIAL_FORM_STATE: TeamMemberFormState = {
   password: "",
 }
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs)
+  })
+
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId)
+  }
+}
+
 export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemberModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -109,7 +123,11 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
       const {
         data: { session },
         error: sessionError,
-      } = await supabase.auth.getSession()
+      } = await withTimeout(
+        supabase.auth.getSession(),
+        10000,
+        "Timed out while checking your admin session"
+      )
 
       if (sessionError || !session?.access_token) {
         throw new Error("Authentication required")
@@ -123,8 +141,12 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
       }
 
       const endpoint = `${supabaseUrl}/functions/v1/bright-handler`
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+
       const response = await fetch(endpoint, {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           apikey: anonKey,
@@ -138,6 +160,11 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
           role: formData.role,
           password: isEditMode ? undefined : formData.password,
         }),
+      }).finally(() => clearTimeout(timeoutId)).catch((error) => {
+        if (error?.name === "AbortError") {
+          throw new Error("Timed out waiting for bright-handler to save the team member")
+        }
+        throw error
       })
 
       const result = await response.json().catch(() => ({}))
@@ -153,7 +180,11 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
       )
 
       // Refetch team members and close
-      await onRefetch()
+      await withTimeout(
+        Promise.resolve(onRefetch()),
+        10000,
+        "Team member saved, but refreshing the list timed out"
+      )
       setFormData(INITIAL_FORM_STATE)
       onClose()
     } catch (err: any) {
