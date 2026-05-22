@@ -22,7 +22,8 @@ import {
   FileText,
   Warehouse,
   UserPlus,
-  LucideIcon
+  LucideIcon,
+  ClipboardList
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useEffect, useMemo, useState } from "react"
@@ -52,6 +53,7 @@ const allNavigation: NavItem[] = [
   { name: "Customers",   href: "/admin/customers/list",         icon: Users,        noInventory: true },
   { name: "GRN",         href: "/admin/inventory/grn",          icon: Warehouse },
   { name: "Stock Audit", href: "/admin/inventory/audit",        icon: BarChart3 },
+  { name: "Tickets",     href: "/admin/tickets",                icon: ClipboardList },
   { name: "Aliases",     href: "/admin/inventory/aliases",      icon: Tag },
   { name: "CRM",         href: "/admin/crm/leads",              icon: UserPlus,     noInventory: true },
   // Admin-only items

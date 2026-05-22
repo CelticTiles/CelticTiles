@@ -100,6 +100,33 @@ export interface Quotation {
   updated_at: string;
 }
 
+export interface Ticket {
+  id: string;
+  title: string;
+  description: string | null;
+  status: "open" | "assigned" | "in_progress" | "pending" | "resolved" | "closed";
+  priority: "low" | "medium" | "high" | "urgent";
+  category: string | null;
+  assigned_to: string | null;
+  created_by: string | null;
+  due_date: string | null;
+  created_at: string;
+  updated_at: string;
+  // joined fields
+  assignee?: { full_name: string | null; email: string } | null;
+  creator?: { full_name: string | null; email: string } | null;
+}
+
+export interface TicketComment {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  comment: string;
+  created_at: string;
+  // joined fields
+  author?: { full_name: string | null; email: string } | null;
+}
+
 export type SupabaseRow<T extends TableName> = SupabaseTables<T>;
 export type SupabaseInsert<T extends TableName> = SupabaseTablesInsert<T>;
 export type SupabaseUpdate<T extends TableName> = SupabaseTablesUpdate<T>;
