@@ -122,12 +122,14 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
         throw new Error("Supabase configuration is missing")
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/bright-handler`, {
+      const endpoint = `${supabaseUrl}/functions/v1/bright-handler`
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           apikey: anonKey,
           Authorization: `Bearer ${session.access_token}`,
+          "x-client-info": "celtic-tiles-admin",
         },
         body: JSON.stringify({
           id: isEditMode ? member?.id : undefined,
@@ -141,7 +143,7 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
       const result = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(result?.error || result?.message || "Operation failed")
+        throw new Error(result?.error || result?.message || `Operation failed (${response.status})`)
       }
 
       toast.success(
