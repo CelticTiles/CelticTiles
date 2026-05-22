@@ -22,6 +22,7 @@ import {
 import { Loader2, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { TeamMember } from "@/hooks/useTeamMembers"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 interface TeamMemberModalProps {
   isOpen: boolean
@@ -104,11 +105,29 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
     setIsSubmitting(true)
 
     try {
-      const response = await fetch("/api/admin/team", {
-        method: isEditMode ? "PATCH" : "POST",
-        credentials: "include",
+      const supabase = getSupabaseBrowserClient()
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession()
+
+      if (sessionError || !session?.access_token) {
+        throw new Error("Authentication required")
+      }
+
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+
+      if (!supabaseUrl || !anonKey) {
+        throw new Error("Supabase configuration is missing")
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/bright-handler`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
+          apikey: anonKey,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           id: isEditMode ? member?.id : undefined,
@@ -119,10 +138,10 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
         }),
       })
 
-      const result = await response.json()
+      const result = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(result.error || "Operation failed")
+        throw new Error(result?.error || result?.message || "Operation failed")
       }
 
       toast.success(
