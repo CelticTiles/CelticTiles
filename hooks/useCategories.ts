@@ -36,11 +36,29 @@ export function useCategories() {
   async function fetchCategories() {
     try {
       setIsLoading(true)
-      const result = await (supabase
-        .from('categories') as any)
-        .select('*')
-        .order('name', { ascending: true })
-      const { data, error } = result || {}
+      let data: Category[] | null = null
+      let error: { message?: string } | null = null
+
+      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+        const response = await fetch('/api/admin/categories', {
+          method: 'GET',
+          credentials: 'include',
+        })
+        const payload = await response.json().catch(() => ({}))
+
+        if (!response.ok) {
+          error = { message: payload?.error || 'Failed to load categories' }
+        } else {
+          data = payload?.categories || []
+        }
+      } else {
+        const result = await (supabase
+          .from('categories') as any)
+          .select('*')
+          .order('name', { ascending: true })
+        data = result?.data || null
+        error = result?.error || null
+      }
 
       if (!mountedRef.current) return
       if (error) throw error

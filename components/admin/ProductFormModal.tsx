@@ -173,7 +173,7 @@ export function ProductFormModal({ isOpen, onClose, onSave, onCreateProduct, onU
         const payload = {
             name: formData.name,
             subtitle: formData.subtitle,
-            category_id: formData.category_id,
+            category_id: formData.category_id || null,
             assigned_code: formData.sku, // Map sku field to assigned_code column
             price: parseFloat(formData.price) || 0,
             stock: parseInt(formData.stock) || 0,

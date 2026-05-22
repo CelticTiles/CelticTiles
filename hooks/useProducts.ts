@@ -358,7 +358,7 @@ export function useProducts(options: UseProductsOptions = {}) {
       description: product.description,
       price: product.price,
       image: product.image,
-      category_id: product.category_id,
+      category_id: product.category_id || null,
       stock: product.stock || 0,
       status: product.status || 'active',
       low_stock_threshold: product.low_stock_threshold || 5,
