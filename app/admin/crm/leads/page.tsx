@@ -429,7 +429,7 @@ export default function LeadsListPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddModal(false)} disabled={isAdding}>Cancel</Button>
-            <Button onClick={handleAddLead} disabled={isAdding} className="neu-raised border-transparent text-white">
+            <Button onClick={() => handleAddLead()} disabled={isAdding} className="neu-raised border-transparent text-white">
               {isAdding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Add Lead
             </Button>

@@ -9,8 +9,11 @@ import { Pagination } from "@/components/admin/Pagination"
 import { usePagination } from "@/hooks/usePagination"
 import {
   Loader2, ClipboardList, Printer, CheckCircle2,
-  AlertTriangle, Search, ChevronDown
+  AlertTriangle, Search, ChevronDown, FileText
 } from "lucide-react"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
+import { format } from "date-fns"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -184,6 +187,48 @@ export default function StockAuditPage() {
   }
 
   const handlePrint = () => { window.print() }
+
+  const handleGeneratePDF = () => {
+    if (countedRows.length === 0) {
+      toast.error("Enter physical counts for at least one product.")
+      return
+    }
+    
+    const doc = new jsPDF()
+    
+    doc.setFontSize(20)
+    doc.text("Stock Audit Report", 14, 22)
+    
+    doc.setFontSize(10)
+    doc.text(`Date: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 30)
+    
+    let startY = 35
+    if (notes) {
+      const splitNotes = doc.splitTextToSize(`Notes: ${notes}`, 180)
+      doc.text(splitNotes, 14, 38)
+      startY = 38 + (splitNotes.length * 5) + 5
+    }
+
+    const tableData = auditItems.map(item => [
+      item.product_name,
+      item.sku || "—",
+      item.category || "—",
+      item.db_stock.toString(),
+      item.physical_count.toString(),
+      item.variance > 0 ? `+${item.variance}` : item.variance.toString()
+    ])
+
+    autoTable(doc, {
+      startY,
+      head: [["Product", "SKU", "Category", "DB Stock", "Count", "Variance"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [41, 128, 185] },
+      styles: { fontSize: 9 },
+    })
+
+    doc.save(`Stock_Audit_${format(new Date(), "yyyy-MM-dd_HHmm")}.pdf`)
+  }
 
   // ── Loading ────────────────────────────────────────────────────────────────
 
@@ -464,6 +509,10 @@ export default function StockAuditPage() {
             </p>
           </div>
           <div className="flex gap-3 ml-auto">
+            <Button type="button" variant="outline" onClick={handleGeneratePDF} className="neu-raised border-transparent text-blue-600 gap-2">
+              <FileText className="h-4 w-4" />
+              Generate PDF
+            </Button>
             <Button type="button" variant="outline" onClick={() => handleSubmit(false)} disabled={isSaving} className="neu-raised border-transparent">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Report Only"}
             </Button>
