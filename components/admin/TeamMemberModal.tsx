@@ -63,6 +63,50 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: s
   }
 }
 
+function getStoredSupabaseAccessToken(supabaseUrl: string): string | null {
+  if (typeof window === "undefined") return null
+
+  const projectRef = (() => {
+    try {
+      return new URL(supabaseUrl).hostname.split(".")[0]
+    } catch {
+      return null
+    }
+  })()
+
+  const storages = [window.localStorage, window.sessionStorage]
+  const preferredKeys = projectRef ? [`sb-${projectRef}-auth-token`] : []
+
+  for (const storage of storages) {
+    for (const key of preferredKeys) {
+      const token = parseStoredAuthToken(storage.getItem(key))
+      if (token) return token
+    }
+
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index)
+      if (!key || !key.startsWith("sb-") || !key.endsWith("-auth-token")) continue
+
+      const token = parseStoredAuthToken(storage.getItem(key))
+      if (token) return token
+    }
+  }
+
+  return null
+}
+
+function parseStoredAuthToken(value: string | null): string | null {
+  if (!value) return null
+
+  try {
+    const normalized = value.startsWith("base64-") ? atob(value.slice("base64-".length)) : value
+    const parsed = JSON.parse(normalized)
+    return parsed?.access_token || parsed?.currentSession?.access_token || null
+  } catch {
+    return null
+  }
+}
+
 export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemberModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -119,25 +163,31 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
     setIsSubmitting(true)
 
     try {
-      const supabase = getSupabaseBrowserClient()
-      const {
-        data: { session },
-        error: sessionError,
-      } = await withTimeout(
-        supabase.auth.getSession(),
-        10000,
-        "Timed out while checking your admin session"
-      )
-
-      if (sessionError || !session?.access_token) {
-        throw new Error("Authentication required")
-      }
-
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
       const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
 
       if (!supabaseUrl || !anonKey) {
         throw new Error("Supabase configuration is missing")
+      }
+
+      let accessToken = getStoredSupabaseAccessToken(supabaseUrl)
+
+      if (!accessToken) {
+        const supabase = getSupabaseBrowserClient()
+        const {
+          data: { session },
+          error: sessionError,
+        } = await withTimeout(
+          supabase.auth.getSession(),
+          10000,
+          "Timed out while checking your admin session"
+        )
+
+        if (sessionError || !session?.access_token) {
+          throw new Error("Authentication required")
+        }
+
+        accessToken = session.access_token
       }
 
       const endpoint = `${supabaseUrl}/functions/v1/bright-handler`
@@ -150,7 +200,7 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
         headers: {
           "Content-Type": "application/json",
           apikey: anonKey,
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
           "x-client-info": "celtic-tiles-admin",
         },
         body: JSON.stringify({
