@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { X, Upload, Image as ImageIcon, Loader2, GripVertical } from "lucide-react"
 import { toast } from "sonner"
 import Image from "next/image"
+import imageCompression from "browser-image-compression"
 
 export interface ProductImage {
   id: string
@@ -59,9 +60,24 @@ export function ProductImageUpload({
           continue
         }
 
-        // ── Upload directly (no compression) ──
+        // ── Compress image before upload ──
+        setStatusText(`Compressing ${file.name}...`)
+        let fileToUpload = file
+        try {
+          const options = {
+            maxSizeMB: 1, // Compress to under 1MB
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+            fileType: "image/webp" // Convert to WebP for massive size reduction
+          }
+          fileToUpload = await imageCompression(file, options)
+        } catch (error) {
+          console.error("Compression error:", error)
+          // Fall back to original if compression fails
+        }
+
         setStatusText(`Uploading ${file.name}...`)
-        const ext = file.name.split('.').pop() || 'jpg'
+        const ext = fileToUpload.type === "image/webp" ? "webp" : (file.name.split('.').pop() || 'jpg')
         const fileName = `${productId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
 
         let uploadResult: any
@@ -69,10 +85,10 @@ export function ProductImageUpload({
           uploadResult = await supabase
             .storage
             .from("uploads")
-            .upload(fileName, file, {
+            .upload(fileName, fileToUpload, {
               cacheControl: "3600",
               upsert: false,
-              contentType: file.type,
+              contentType: fileToUpload.type,
             })
         } catch (uploadErr) {
           console.error("Upload exception:", uploadErr)
