@@ -16,9 +16,11 @@ import Link from "next/link"
 import { formatPrice } from "@/lib/utils"
 import Image from "next/image"
 
+import { toast } from "sonner"
+
 interface ProductsTableProps {
   products: Product[]
-  onDelete?: (id: string) => void
+  onDelete?: (id: string) => Promise<void> | void
   onEdit?: (product: Product) => void
 }
 
@@ -102,9 +104,14 @@ export function ProductsTable({ products, onDelete, onEdit }: ProductsTableProps
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => {
+                      onClick={async () => {
                         if (confirm('Are you sure you want to delete this product?')) {
-                          onDelete(product.id)
+                          try {
+                            await onDelete(product.id)
+                            toast.success("Product deleted successfully")
+                          } catch (error: any) {
+                            toast.error(error.message || "Failed to delete product")
+                          }
                         }
                       }}
                       aria-label={`Delete ${product.name}`}

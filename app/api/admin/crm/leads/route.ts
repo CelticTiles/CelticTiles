@@ -2,17 +2,26 @@ import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/loaders'
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession()
     if (!session.userId || (session.userRole !== 'admin' && session.userRole !== 'sales')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    
+    const { searchParams } = new URL(req.url)
+    const compact = searchParams.get("compact") === "true"
+
     const supabase = await createServerSupabase()
-    const { data, error } = await (supabase as any)
-      .from('leads')
-      .select('*')
-      .order('created_at', { ascending: false })
+    
+    let query = (supabase as any).from('leads')
+    if (compact) {
+      query = query.select('id, name, email').neq('status', 'Converted').order('created_at', { ascending: false })
+    } else {
+      query = query.select('*').order('created_at', { ascending: false })
+    }
+
+    const { data, error } = await query
     if (error) throw new Error(error.message)
     return NextResponse.json({ leads: data ?? [] })
   } catch (err: unknown) {

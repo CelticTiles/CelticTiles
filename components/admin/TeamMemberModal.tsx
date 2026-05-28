@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -20,19 +19,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Loader2, Eye, EyeOff } from "lucide-react"
+import { Loader2, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
-import { type TeamMember } from "@/types"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { TeamMember } from "@/hooks/useTeamMembers"
 
 interface TeamMemberModalProps {
   isOpen: boolean
   onClose: () => void
   onRefetch: () => Promise<void> | void
-  member?: TeamMember | null // If null, we are in "Create" mode
+  member?: TeamMember | null
 }
 
-type Role = "admin" | "sales" | "inventory"
+type Role = "admin" | "sales"
 
 interface TeamMemberFormState {
   full_name: string
@@ -49,21 +47,21 @@ const INITIAL_FORM_STATE: TeamMemberFormState = {
 }
 
 export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemberModalProps) {
-  const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState<TeamMemberFormState>(INITIAL_FORM_STATE)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const isEditMode = !!member
 
-  // Sync form data with member when modal opens or member changes
   useEffect(() => {
     if (isOpen) {
+      setErrorMessage(null)
       if (member) {
         setFormData({
           full_name: member.full_name || "",
           email: member.email || "",
-          role: (member.role as Role) || "sales",
+          role: member.role || "sales",
           password: "",
         })
       } else {
@@ -72,9 +70,7 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
     }
   }, [isOpen, member])
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
@@ -85,73 +81,51 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setErrorMessage(null)
 
     if (!formData.full_name.trim()) {
-      toast.error("Please enter a name")
+      setErrorMessage("Please enter a name")
       return
     }
-
     if (!formData.email.trim()) {
-      toast.error("Please enter an email")
+      setErrorMessage("Please enter an email")
       return
     }
-
     if (!isEditMode && !formData.password) {
-      toast.error("Please enter a password for new member")
+      setErrorMessage("Please enter a password for the new member")
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      const supabase = getSupabaseBrowserClient()
+      const response = await fetch("/api/admin/team", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: isEditMode ? member?.id : undefined,
+          full_name: formData.full_name,
+          email: formData.email,
+          role: formData.role,
+          password: isEditMode ? undefined : formData.password,
+        }),
+      })
 
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession()
-
-      if (sessionError || !session?.access_token) {
-        throw new Error("Authentication required")
-      }
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/bright-handler`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            id: isEditMode ? member?.id : undefined,
-            full_name: formData.full_name,
-            email: formData.email,
-            role: formData.role,
-            password: isEditMode ? undefined : formData.password,
-          }),
-        }
-      )
-
-      const result = await response.json()
+      const result = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(result.error || "Operation failed")
+        throw new Error(result?.error || result?.message || `Operation failed (${response.status})`)
       }
 
-      toast.success(
-        isEditMode
-          ? "Team member updated successfully"
-          : "Team member created successfully"
-      )
-
-      // Refresh server data without full reload
-      router.refresh()
+      toast.success(isEditMode ? "Team member updated successfully" : "Team member created successfully")
+      await Promise.resolve(onRefetch())
       setFormData(INITIAL_FORM_STATE)
       onClose()
     } catch (err: any) {
-      console.error("Error saving team member:", err)
-      toast.error(err.message || "Failed to save team member")
+      const msg = err?.message || "Failed to save team member"
+      setErrorMessage(msg)
+      toast.error(msg)
     } finally {
       setIsSubmitting(false)
     }
@@ -159,6 +133,7 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
 
   const handleCancel = () => {
     setFormData(INITIAL_FORM_STATE)
+    setErrorMessage(null)
     onClose()
   }
 
@@ -177,7 +152,14 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name Field */}
+          {/* Inline error */}
+          {errorMessage && (
+            <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="full_name">Full Name</Label>
             <Input
@@ -190,7 +172,6 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
             />
           </div>
 
-          {/* Email Field */}
           <div className="space-y-2">
             <Label htmlFor="email">Email Address</Label>
             <Input
@@ -204,7 +185,6 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
             />
           </div>
 
-          {/* Role Selection */}
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
             <Select value={formData.role} onValueChange={handleRoleChange}>
@@ -214,12 +194,10 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
               <SelectContent>
                 <SelectItem value="sales">Sales</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="inventory">Inventory</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Password Field (Only for new members) */}
           {!isEditMode && (
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -228,7 +206,7 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
                   id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter a Password"
+                  placeholder="Enter a password"
                   value={formData.password}
                   onChange={handleInputChange}
                   disabled={isSubmitting}
@@ -240,11 +218,7 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
                   onClick={() => setShowPassword((prev) => !prev)}
                   tabIndex={-1}
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -259,12 +233,11 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
               variant="outline"
               onClick={handleCancel}
               disabled={isSubmitting}
-              className="hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-100"
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={isSubmitting}
               className="bg-red-700 hover:bg-red-800 text-white"
             >

@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
     const assignedTo = searchParams.get("assigned_to")
+    const leadId = searchParams.get("lead_id")
 
     const supabase = await createServerSupabase()
 
@@ -21,7 +22,8 @@ export async function GET(request: Request) {
       .select(`
         *,
         assignee:profiles!tickets_assigned_to_fkey(full_name, email),
-        creator:profiles!tickets_created_by_fkey(full_name, email)
+        creator:profiles!tickets_created_by_fkey(full_name, email),
+        lead:leads(id, name, email)
       `)
       .order("created_at", { ascending: false })
 
@@ -31,10 +33,10 @@ export async function GET(request: Request) {
 
     if (assignedTo) {
       query = query.eq("assigned_to", assignedTo)
-    } else if (session.userRole !== "admin") {
-      // Non-admins can only see tickets assigned to them or created by them (unless we want collaborative retail viewing)
-      // Actually, in the SQL RLS, they can read all. Let's filter here for cleaner UI unless they select "all".
-      // We will let the frontend explicitly ask for assigned_to=me if they only want theirs.
+    }
+
+    if (leadId) {
+      query = query.eq("lead_id", leadId)
     }
 
     const { data: tickets, error } = await query
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { title, description, priority, category, assigned_to, due_date } = body
+    const { title, description, priority, category, assigned_to, due_date, lead_id } = body
 
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
@@ -74,6 +76,7 @@ export async function POST(request: Request) {
           priority: priority || "medium",
           category,
           assigned_to: assigned_to || null,
+          lead_id: lead_id || null,
           created_by: session.userId,
           due_date: due_date || null
         }
@@ -81,7 +84,8 @@ export async function POST(request: Request) {
       .select(`
         *,
         assignee:profiles!tickets_assigned_to_fkey(full_name, email),
-        creator:profiles!tickets_created_by_fkey(full_name, email)
+        creator:profiles!tickets_created_by_fkey(full_name, email),
+        lead:leads(id, name, email)
       `)
       .single()
 

@@ -1,7 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
-import { getSupabaseBrowserClient } from '@/lib/supabase'
+import { useEffect, useState, useRef, useCallback } from 'react'
 
 export interface Category {
   id: string
@@ -14,7 +13,6 @@ export interface Category {
 }
 
 export function useCategories() {
-  const supabase = useMemo(() => getSupabaseBrowserClient(), [])
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,22 +26,27 @@ export function useCategories() {
       inFlightRef.current = true
       setIsLoading(true)
       setError(null)
-      const result = await (supabase
-        .from('categories') as any)
-        .select('*')
-        .order('name', { ascending: true })
-      const { data, error } = result || {}
+
+      const res = await fetch('/api/admin/categories', { credentials: 'include' })
 
       if (!mountedRef.current) return
-      if (error) throw error
-      setCategories(data || [])
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData?.error || `Failed to fetch categories (${res.status})`)
+      }
+
+      const data = await res.json()
+      if (mountedRef.current) {
+        setCategories(data.categories || [])
+      }
     } catch (err: any) {
       if (mountedRef.current) setError(err.message)
     } finally {
       inFlightRef.current = false
       if (mountedRef.current) setIsLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     mountedRef.current = true
@@ -58,51 +61,10 @@ export function useCategories() {
     return () => clearTimeout(t)
   }, [fetchCategories, isLoading])
 
-  async function addCategory(category: Omit<Category, 'id' | 'created_at'>) {
-    const result = await (supabase
-      .from('categories') as any)
-      .insert([category])
-      .select()
-      .single()
-    const { data, error } = result || {}
-
-    if (error) throw error
-    setCategories(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
-    return data
-  }
-
-  async function updateCategory(id: string, updates: Partial<Category>) {
-    const result = await (supabase
-      .from('categories') as any)
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-    const { data, error } = result || {}
-
-    if (error) throw error
-    setCategories(prev => prev.map(c => c.id === id ? data : c))
-    return data
-  }
-
-  async function deleteCategory(id: string) {
-    const result = await (supabase
-      .from('categories') as any)
-      .delete()
-      .eq('id', id)
-    const { error } = result || {}
-
-    if (error) throw error
-    setCategories(prev => prev.filter(c => c.id !== id))
-  }
-
   return {
     categories,
     isLoading,
     error,
-    addCategory,
-    updateCategory,
-    deleteCategory,
     refetch: fetchCategories
   }
 }

@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, Plus, Search, LayoutGrid, List as ListIcon, Calendar, MessageSquare, Clock } from "lucide-react"
+import { Loader2, Plus, Search, LayoutGrid, List as ListIcon, Calendar, MessageSquare, Clock, Users2 } from "lucide-react"
 import type { Ticket, TicketComment } from "@/lib/supabase-types"
 import { format, parseISO } from "date-fns"
 
@@ -32,7 +34,7 @@ const PRIORITY_COLORS: Record<string, string> = {
   urgent: "bg-red-100 text-red-700",
 }
 
-export default function TicketsPage() {
+function TicketsContent() {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [view, setView] = useState<"board" | "list">("board")
@@ -41,14 +43,17 @@ export default function TicketsPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   
-  // Profiles for assignment
+  // Profiles and Leads for assignment
   const [profiles, setProfiles] = useState<any[]>([])
+  const [leads, setLeads] = useState<any[]>([])
+
+  const searchParams = useSearchParams()
 
   // Create Modal
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [createForm, setCreateForm] = useState({
-    title: "", description: "", priority: "medium", category: "inventory", assigned_to: "", due_date: ""
+    title: "", description: "", priority: "medium", category: "inventory", assigned_to: "", due_date: "", lead_id: "none"
   })
 
   // Details Modal
@@ -60,7 +65,18 @@ export default function TicketsPage() {
   useEffect(() => {
     fetchTickets()
     fetchProfiles()
+    fetchLeads()
   }, [])
+
+  useEffect(() => {
+    if (searchParams.get("new") === "true") {
+      setShowCreateModal(true)
+      const urlLeadId = searchParams.get("lead_id")
+      if (urlLeadId) {
+        setCreateForm(prev => ({ ...prev, lead_id: urlLeadId }))
+      }
+    }
+  }, [searchParams])
 
   const fetchTickets = async () => {
     try {
@@ -88,20 +104,34 @@ export default function TicketsPage() {
     }
   }
 
+  const fetchLeads = async () => {
+    try {
+      const res = await fetch("/api/admin/crm/leads?compact=true", { credentials: "include" })
+      const data = await res.json()
+      if (res.ok) setLeads(data.leads || [])
+    } catch (e) {
+      console.error("Failed to load leads", e)
+    }
+  }
+
   const handleCreate = async () => {
     if (!createForm.title) return toast.error("Title is required")
     setIsCreating(true)
     try {
+      const payload = {
+        ...createForm,
+        lead_id: createForm.lead_id === "none" ? undefined : createForm.lead_id
+      }
       const res = await fetch("/api/admin/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(createForm)
+        body: JSON.stringify(payload)
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setTickets(prev => [data.ticket, ...prev])
       setShowCreateModal(false)
-      setCreateForm({ title: "", description: "", priority: "medium", category: "inventory", assigned_to: "", due_date: "" })
+      setCreateForm({ title: "", description: "", priority: "medium", category: "inventory", assigned_to: "", due_date: "", lead_id: "none" })
       toast.success("Ticket created")
     } catch (error: any) {
       toast.error(error.message)
@@ -235,9 +265,9 @@ export default function TicketsPage() {
         <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : view === "board" ? (
         /* Kanban Board */
-        <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
+        <div className="flex gap-4 overflow-x-auto pb-4 snap-x px-1">
           {columns.map(col => (
-            <div key={col.id} className="min-w-[300px] w-[300px] flex flex-col bg-accent/20 rounded-2xl p-3 snap-start">
+            <div key={col.id} className="min-w-[300px] w-[300px] flex flex-col bg-muted/30 neu-pressed rounded-2xl p-3 snap-start border border-border/50">
               <div className="flex items-center justify-between mb-3 px-1">
                 <h3 className="font-semibold text-sm text-foreground">{col.title}</h3>
                 <span className="text-xs bg-background text-muted-foreground px-2 py-0.5 rounded-full shadow-sm">
@@ -249,7 +279,7 @@ export default function TicketsPage() {
                   <div 
                     key={ticket.id} 
                     onClick={() => openDetails(ticket)}
-                    className="bg-card p-4 rounded-xl shadow-sm border border-border/50 cursor-pointer hover:border-primary/30 transition-colors group"
+                    className="bg-card p-4 rounded-xl neu-raised border border-transparent cursor-pointer hover:border-primary/30 transition-all group hover:scale-[1.01]"
                   >
                     <div className="flex justify-between items-start gap-2 mb-2">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${PRIORITY_COLORS[ticket.priority]}`}>
@@ -276,6 +306,12 @@ export default function TicketsPage() {
                         </div>
                       )}
                     </div>
+                    {ticket.lead && (
+                      <div className="mt-3 pt-2 border-t border-border/40 text-[10px] text-muted-foreground flex items-center gap-1.5">
+                        <Users2 className="w-3 h-3 shrink-0" />
+                        <span className="truncate">Lead: {ticket.lead.name}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -381,6 +417,18 @@ export default function TicketsPage() {
                 <Label>Due Date</Label>
                 <Input type="date" value={createForm.due_date} onChange={e => setCreateForm({...createForm, due_date: e.target.value})} />
               </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label>Link to CRM Lead (Optional)</Label>
+                <Select value={createForm.lead_id} onValueChange={v => setCreateForm({...createForm, lead_id: v})}>
+                  <SelectTrigger><SelectValue placeholder="No Lead Selected" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Lead</SelectItem>
+                    {leads.map(l => (
+                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -460,6 +508,15 @@ export default function TicketsPage() {
                       </div>
                     </div>
                   )}
+                  {selectedTicket.lead && (
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Linked Lead</p>
+                      <Link href={`/admin/crm/leads/${selectedTicket.lead.id}`} className="font-medium text-primary hover:underline flex items-center gap-1.5">
+                        <Users2 className="w-4 h-4" />
+                        {selectedTicket.lead.name}
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 {/* Comments Section */}
@@ -508,5 +565,13 @@ export default function TicketsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function TicketsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>}>
+      <TicketsContent />
+    </Suspense>
   )
 }

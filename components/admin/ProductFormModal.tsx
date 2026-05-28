@@ -207,13 +207,15 @@ const res = await fetch(endpoint, {
 })
 
 if (!res.ok) {
-  throw new Error("Failed to save product")
+  const errData = await res.json().catch(() => ({}))
+  throw new Error(errData?.error || "Failed to save product")
 }
 
 if (!product) {
   const newProduct = await res.json()
-  if (newProduct?.id) {
-    setCreatedProductId(newProduct.id)
+  const createdId = newProduct?.product?.id || newProduct?.id
+  if (createdId) {
+    setCreatedProductId(createdId)
     toast.success("Product created! You can now add images.")
     return
   }
@@ -267,7 +269,7 @@ await onSave?.()
              <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
               <Select 
-                value={formData.category_id} 
+                value={formData.category_id || undefined} 
                 onValueChange={(val) => handleChange("category_id", val)}
               >
                 <SelectTrigger>
@@ -517,7 +519,17 @@ await onSave?.()
 
 
         <DialogFooter>
-          <Button variant="outline" type="button" onClick={onClose} disabled={isSubmitting}>
+          <Button
+            variant="outline"
+            type="button"
+            disabled={isSubmitting}
+            onClick={async () => {
+              if (createdProductId) {
+                await onSave?.()
+              }
+              onClose()
+            }}
+          >
             {createdProductId ? "Done" : "Cancel"}
           </Button>
           {!createdProductId && (

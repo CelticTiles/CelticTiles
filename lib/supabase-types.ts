@@ -110,11 +110,13 @@ export interface Ticket {
   assigned_to: string | null;
   created_by: string | null;
   due_date: string | null;
+  lead_id?: string | null;
   created_at: string;
   updated_at: string;
   // joined fields
   assignee?: { full_name: string | null; email: string } | null;
   creator?: { full_name: string | null; email: string } | null;
+  lead?: { id: string; name: string; email: string } | null;
 }
 
 export interface TicketComment {

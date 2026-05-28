@@ -254,8 +254,13 @@ export function useProducts(options: UseProductsOptions = {}) {
   }
 
   async function deleteProduct(id: string) {
-    const { error } = await (supabase.from('products') as any).delete().eq('id', id)
-    if (error) throw error
+    const res = await fetch(`/api/admin/products/${id}`, {
+      method: "DELETE",
+    })
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData?.error || "Failed to delete product")
+    }
     setProducts((prev) => prev.filter((p) => p.id !== id))
   }
 

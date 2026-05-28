@@ -22,6 +22,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
     }
 
+    // Auto-generate slug from name if not provided (slug is required NOT NULL in DB)
+    if (!payload.slug) {
+      const base = (payload.name || "product")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+      payload.slug = `${base}-${Date.now()}`
+    }
+
     const supabase = await createServerSupabase()
     const { data, error } = await supabase
       .from("products")

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Edit, Trash2, Search, AlertCircle, Mail, Users, Key } from 'lucide-react'
-import { IconSpinner } from '@/components/ui/icon-spinner'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/admin/EmptyState'
 import { DeleteConfirmDialog } from '@/components/admin/DeleteConfirmDialog'
 import { TeamMemberModal } from '@/components/admin/TeamMemberModal'
@@ -29,6 +29,7 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
   const [resetPasswordId, setResetPasswordId] = useState<string | null>(null)
@@ -63,14 +64,20 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
   }
 
   const handleDeleteMember = async (id: string) => {
+    if (isDeleting) return
+    setIsDeleting(true)
     try {
       await deleteTeamMember(id)
       setDeleteId(null)
       if (currentMembers.length === 1 && currentPage > 1) {
         setCurrentPage(currentPage - 1)
       }
+      toast.success('Team member deleted successfully')
     } catch (err: any) {
       console.error('Delete error:', err)
+      toast.error(err?.message || 'Failed to delete team member')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -92,8 +99,6 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
         return 'bg-red-100 text-red-800'
       case 'sales':
         return 'bg-blue-100 text-blue-800'
-      case 'inventory':
-        return 'bg-green-100 text-green-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -152,8 +157,17 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
         </CardHeader>
         <CardContent>
           {isLoading && initialTeamMembers.length === 0 ? (
-            <div className="flex min-h-[40vh] items-center justify-center">
-              <IconSpinner label="Loading team members..." />
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-4 py-4 border-b border-border last:border-0">
+                  <Skeleton className="w-10 h-10 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                  <Skeleton className="h-8 w-20" />
+                </div>
+              ))}
             </div>
           ) : filteredMembers.length === 0 ? (
             <EmptyState
@@ -243,8 +257,9 @@ export default function TeamListClient({ initialTeamMembers, serverError }: Team
       <DeleteConfirmDialog
         isOpen={!!deleteId}
         title="Delete Team Member"
-        description="Are you sure you want to delete this team member? This action cannot be undone."
-        itemName="team member"
+        description="Are you sure you want to delete this team member?"
+        itemName={teamMembers.find(m => m.id === deleteId)?.name || teamMembers.find(m => m.id === deleteId)?.email || ""}
+        isLoading={isDeleting}
         onConfirm={() => deleteId && handleDeleteMember(deleteId)}
         onCancel={() => setDeleteId(null)}
       />

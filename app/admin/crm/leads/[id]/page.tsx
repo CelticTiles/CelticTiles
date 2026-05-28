@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { ArrowLeft, Loader2, FileText, Mail, Phone, Calendar, MessageSquare, ArrowRight } from "lucide-react"
+import { ArrowLeft, Loader2, FileText, Mail, Phone, Calendar, MessageSquare, ArrowRight, Ticket as TicketIcon } from "lucide-react"
 
 interface Lead {
   id: string
@@ -55,6 +55,7 @@ export default function LeadDetailPage() {
   const [lead, setLead] = useState<Lead | null>(null)
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [quotations, setQuotations] = useState<LinkedQuotation[]>([])
+  const [tickets, setTickets] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -67,6 +68,7 @@ export default function LeadDetailPage() {
     fetchLead()
     fetchLogs()
     fetchQuotations()
+    fetchTickets()
   }, [id])
 
   const fetchLead = async () => {
@@ -137,6 +139,17 @@ export default function LeadDetailPage() {
       if (!res.ok) return
       const data = await res.json()
       setLogs(data.logs ?? [])
+    } catch {
+      // non-critical
+    }
+  }
+
+  const fetchTickets = async () => {
+    try {
+      const res = await fetch(`/api/admin/crm/leads/${id}/tickets`, { credentials: "include" })
+      if (!res.ok) return
+      const data = await res.json()
+      setTickets(data.tickets ?? [])
     } catch {
       // non-critical
     }
@@ -259,6 +272,16 @@ export default function LeadDetailPage() {
                   Create Quote from Lead
                 </Link>
               </Button>
+              <Button
+                asChild
+                variant="outline"
+                className="w-full mt-3 text-primary border-primary/20 hover:bg-primary/5"
+              >
+                <Link href={`/admin/tickets?new=true&lead_id=${lead.id}`}>
+                  <TicketIcon className="w-4 h-4 mr-2" />
+                  Create Ticket / Task
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -339,6 +362,37 @@ export default function LeadDetailPage() {
                             <ArrowRight className="w-3 h-3 ml-1" />
                           </Button>
                         )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Linked Tickets */}
+          <Card>
+            <CardHeader><CardTitle>Linked Tickets & Tasks</CardTitle></CardHeader>
+            <CardContent>
+              {tickets.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No tickets yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {tickets.map(t => (
+                    <div key={t.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                      <div>
+                        <Link href={`/admin/tickets`} className="font-semibold text-primary hover:underline text-sm">
+                          {t.title}
+                        </Link>
+                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+                          <span>{format(new Date(t.created_at), "dd MMM yyyy")}</span>
+                          <span className="capitalize px-1.5 py-0.5 bg-muted rounded text-[10px]">{t.priority}</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground capitalize">
+                          {t.status.replace("_", " ")}
+                        </span>
                       </div>
                     </div>
                   ))}
