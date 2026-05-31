@@ -31,6 +31,24 @@ export function parseCoveragePerBox(coverage?: string | null): number | null {
   return isNaN(val) || val <= 0 ? null : val;
 }
 
+/**
+ * Computes the m² coverage per panel from panel_length and panel_width (both stored in mm).
+ * Assumes 1 panel per box.
+ * Returns null if either dimension is missing or invalid.
+ */
+export function parsePanelCoveragePerBox(
+  panel_length?: string | null,
+  panel_width?: string | null
+): number | null {
+  if (!panel_length || !panel_width) return null;
+  const len = parseFloat(panel_length);
+  const wid = parseFloat(panel_width);
+  if (isNaN(len) || isNaN(wid) || len <= 0 || wid <= 0) return null;
+  // Dimensions are in mm → convert to m² (divide mm × mm by 1,000,000)
+  const sqm = (len * wid) / 1_000_000;
+  return sqm > 0 ? parseFloat(sqm.toFixed(4)) : null;
+}
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -53,10 +71,17 @@ export function TileCalculator({
     useState<CalculatorValues | null>(null);
   const [hasCalculated, setHasCalculated] = useState(false);
 
-  // Coverage per box from product data
+  // ── Coverage per box ────────────────────────────────────────────────────────
+  // Tiles: read from sqm_per_box or coverage field.
+  // Wall panels: derive from panel_length × panel_width (both in mm), 1 panel per box.
+  const isWallPanel = !!(product.panel_length && product.panel_width) &&
+    !product.sqm_per_box && !product.coverage;
+
   const coveragePerBox = product.sqm_per_box
     ? parseCoveragePerBox(product.sqm_per_box)
-    : parseCoveragePerBox(product.coverage || undefined);
+    : product.coverage
+    ? parseCoveragePerBox(product.coverage)
+    : parsePanelCoveragePerBox(product.panel_length, product.panel_width);
 
   // Price per sqm
   const pricePerSqm = product.pricePerSqm || product.price;
@@ -227,11 +252,15 @@ export function TileCalculator({
               <span className="font-bold text-slate-900">{coverageDisplay}m²</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold text-slate-700">Boxes:</span>
+              <span className="font-semibold text-slate-700">
+                {isWallPanel ? "Panels needed:" : "Boxes:"}
+              </span>
               <span className="font-bold text-slate-900">{calculatorValues.boxes}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold text-slate-700">Coverage per Box:</span>
+              <span className="font-semibold text-slate-700">
+                {isWallPanel ? "Coverage per Panel:" : "Coverage per Box:"}
+              </span>
               <span className="font-bold text-slate-900">{coveragePerBox}m²</span>
             </div>
           </div>

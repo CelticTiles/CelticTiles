@@ -12,7 +12,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     const supabase = await createServerSupabase()
     const { data, error } = await (supabase as any)
       .from('activity_logs')
-      .select('*')
+      .select('*, performer:profiles!activity_logs_performed_by_fkey(full_name, email)')
       .eq('lead_id', id)
       .order('created_at', { ascending: false })
     if (error) throw new Error(error.message)

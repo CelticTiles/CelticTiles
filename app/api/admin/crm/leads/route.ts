@@ -96,8 +96,23 @@ export async function PATCH(req: Request) {
     const { id, ...updates } = await req.json()
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
     const supabase = await createServerSupabase()
+
+    // Fetch old lead to detect status changes
+    const { data: oldLead } = await (supabase as any).from('leads').select('status').eq('id', id).maybeSingle()
+
     const { error } = await (supabase as any).from('leads').update(updates).eq('id', id)
     if (error) throw new Error(error.message)
+
+    // Log status change
+    if (updates.status && oldLead && oldLead.status !== updates.status) {
+      await (supabase as any).from('activity_logs').insert({
+        lead_id: id,
+        action: 'status_changed',
+        note: `Status updated from ${oldLead.status} to ${updates.status}`,
+        performed_by: session.userId
+      })
+    }
+
     return NextResponse.json({ success: true })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to update lead'

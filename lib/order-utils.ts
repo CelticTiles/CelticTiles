@@ -25,17 +25,12 @@ export function calculateOrderTotals(items: { unitPrice: number; quantity: numbe
   }
 }
 
+export const ALL_ORDER_STATUSES = [
+  'Pending', 'Confirmed', 'Processing', 'Ready', 'Shipped', 'Delivered', 'Cancelled'
+];
+
 export function getValidNextStatuses(currentStatus: string): string[] {
-  const statusProgression: Record<string, string[]> = {
-    'Pending': ['Confirmed', 'Cancelled'],
-    'Confirmed': ['Processing', 'Cancelled'],
-    'Processing': ['Ready', 'Cancelled'],
-    'Ready': ['Shipped', 'Cancelled'],
-    'Shipped': ['Delivered'],
-    'Delivered': [],
-    'Cancelled': []
-  }
-  return statusProgression[currentStatus] || []
+  return ALL_ORDER_STATUSES.filter(status => status !== currentStatus);
 }
 
 export function formatOrderDate(date: string): string {

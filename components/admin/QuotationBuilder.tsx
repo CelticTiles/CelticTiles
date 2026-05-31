@@ -169,6 +169,25 @@ export function QuotationBuilder({
     setItems([...items, newItem]);
   };
 
+  const handleAddThirdPartyProduct = () => {
+    const newItem: QuotationProductItem = {
+      id: crypto.randomUUID(),
+      type: "product",
+      sort_order: items.length,
+      product_id: null,
+      code: "",
+      description: "",
+      quantity: 1,
+      unit_price: 0,
+      discount_percentage: 0,
+      amount: 0,
+      vat_rate: vatRate,
+      vat_amount: 0,
+      image_url: null,
+    };
+    setItems([...items, newItem]);
+  };
+
   const updateItem = (
     id: string,
     updates: Partial<QuotationProductItem | QuotationSectionHeader>,
@@ -490,6 +509,14 @@ export function QuotationBuilder({
               <Button
                 type="button"
                 variant="outline"
+                onClick={handleAddThirdPartyProduct}
+                className="shrink-0 w-full sm:w-auto neu-raised border-transparent"
+              >
+                <Plus className="w-4 h-4 mr-2" /> Add Third Party Product
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
                 onClick={handleAddSection}
                 className="shrink-0 w-full sm:w-auto neu-raised border-transparent"
               >
@@ -604,7 +631,22 @@ export function QuotationBuilder({
                             className="w-20"
                           />
                         </td>
-                        <td className="px-4 py-2 font-medium">{item.code}</td>
+                        <td className="px-4 py-2">
+                          {item.product_id ? (
+                            <span className="font-medium">{item.code}</span>
+                          ) : (
+                            <Input
+                              value={item.code}
+                              onChange={(e) =>
+                                updateItem(item.id, {
+                                  code: e.target.value,
+                                })
+                              }
+                              placeholder="Code"
+                              className="w-28"
+                            />
+                          )}
+                        </td>
                         <td className="px-4 py-2">
                           <Input
                             value={item.description}

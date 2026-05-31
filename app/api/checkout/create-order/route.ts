@@ -18,6 +18,7 @@ interface CreateOrderRequestBody {
   stripeSessionId?: string
   paymentMethod?: PaymentMethod
   couponCode?: string | null
+  saveAddress?: boolean
   customer?: {
     full_name?: string
     email?: string
@@ -117,10 +118,55 @@ export async function POST(request: NextRequest) {
     const isOfflinePayment = paymentMethod === "offline_cash" || paymentMethod === "card_instore" || paymentMethod === "bank_transfer"
     const isQuoteMode = !!(body as any).quoteId && !!(body as any).quoteSnapshot
 
+    console.log(`[create-order] Received request from user ${session.userId} for method ${paymentMethod}`);
+    
     // Quote mode: always use the passed quote snapshot — no cart lookup needed
-    const snapshot = isQuoteMode
-      ? (body as any).quoteSnapshot
-      : await buildSecureCheckoutSnapshot(supabase, session.userId, body.couponCode)
+    console.log(`[create-order] isQuoteMode = ${isQuoteMode}`)
+    let snapshot;
+    if (isQuoteMode) {
+      snapshot = (body as any).quoteSnapshot;
+    } else {
+      console.log(`[create-order] Calling buildSecureCheckoutSnapshot...`)
+      snapshot = await buildSecureCheckoutSnapshot(supabase, session.userId, body.couponCode)
+      console.log(`[create-order] buildSecureCheckoutSnapshot finished!`)
+    }
+
+    console.log(`[create-order] Snapshot built successfully, total: ${snapshot.total}`);
+
+    // ✅ Save address server-side (non-blocking) — avoids client-side Supabase hangs
+    if (!isQuoteMode && body.saveAddress && street && city && pincode) {
+      supabase
+        .from('customer_addresses')
+        .select('id')
+        .eq('user_id', session.userId)
+        .eq('street', street)
+        .eq('city', city)
+        .eq('pincode', pincode)
+        .limit(1)
+        .then(({ data: existing }) => {
+          if (!existing || existing.length === 0) {
+            supabase.from('customer_addresses').insert([{
+              user_id: session.userId,
+              full_name: fullName,
+              street,
+              city,
+              state,
+              pincode,
+              country,
+              phone,
+              is_default: false,
+              label: null,
+            }]).then(() => {
+              console.log('[create-order] Address saved successfully')
+            }).catch((err) => {
+              console.warn('[create-order] Address insert failed (non-critical):', err)
+            })
+          }
+        })
+        .catch((err) => {
+          console.warn('[create-order] Address lookup failed (non-critical):', err)
+        })
+    }
 
     let orderNumber = generateSecureOrderNumber()
 
@@ -164,9 +210,12 @@ export async function POST(request: NextRequest) {
         .neq("stripe_session_id", stripeSessionId)
     }
 
+    const initialStatus = isOfflinePayment ? "Confirmed" : "Pending"
+    const initialPaymentStatus = isOfflinePayment ? "Paid" : "Pending"
+
     const statusHistory: StatusHistoryEntry[] = [
       {
-        status: "Pending",
+        status: initialStatus,
         timestamp: new Date().toISOString(),
         updated_by: session.userName || "system",
         note:
@@ -192,9 +241,9 @@ export async function POST(request: NextRequest) {
       discount: snapshot.discount,
       coupon_code: snapshot.coupon_code,
       total: snapshot.total,
-      status: "Pending",
+      status: initialStatus,
       payment_method: paymentMethod,
-      payment_status: "Pending",
+      payment_status: initialPaymentStatus,
       delivery_address: JSON.parse(
         JSON.stringify({ street, city, state, pincode, country } satisfies DeliveryAddress)
       ) as Database["public"]["Tables"]["orders"]["Insert"]["delivery_address"],
@@ -219,6 +268,8 @@ export async function POST(request: NextRequest) {
       console.error("[create-order] Insert error:", error)
       return NextResponse.json({ error: error?.message || "Failed to create order" }, { status: 500 })
     }
+    
+    console.log(`[create-order] Order inserted successfully: ${orderNumber}`);
 
 
     // ✅ Notify Admin about new order (non-blocking)

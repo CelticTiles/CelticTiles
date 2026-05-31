@@ -44,8 +44,8 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
     const body = await request.json()
     const supabase = await createServerSupabase()
 
-    // Fetch old ticket to see if assignee changed
-    const { data: oldTicket } = await supabase.from("tickets").select("assigned_to").eq("id", params.id).single()
+    // Fetch old ticket to see if assignee changed, and for logging status changes
+    const { data: oldTicket } = await supabase.from("tickets").select("assigned_to, status, lead_id").eq("id", params.id).single()
 
     // Status logic: if assigned_to is newly set, and status is open, set to assigned
     let { status } = body
@@ -70,6 +70,16 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
       .single()
 
     if (error) throw error
+
+    // Log status change if lead_id exists and status changed
+    if (oldTicket && oldTicket.lead_id && updates.status && oldTicket.status !== updates.status) {
+      await supabase.from("activity_logs").insert({
+        lead_id: oldTicket.lead_id,
+        action: "ticket_status_changed",
+        note: `Ticket "${ticket.title}" status changed from ${oldTicket.status.replace(/_/g, " ")} to ${updates.status.replace(/_/g, " ")}`,
+        performed_by: session.userId
+      })
+    }
 
     // Send email if reassigned or newly assigned to someone
     if (body.assigned_to && oldTicket && body.assigned_to !== oldTicket.assigned_to && ticket.assignee?.email) {

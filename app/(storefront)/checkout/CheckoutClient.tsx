@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useCart } from "@/hooks/useCart"
 import { formatPrice } from "@/lib/utils"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
+
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import Image from "next/image"
@@ -13,7 +13,6 @@ import { toast } from "sonner"
 import { ArrowLeft, Loader2, Tag } from "lucide-react"
 import Link from "next/link"
 import type { UserAddress } from "@/hooks/useAddresses"
-import type { Database } from "@/lib/supabase-types"
 
 interface AppliedCoupon {
     code: string
@@ -33,14 +32,13 @@ interface CheckoutClientProps {
     initialAddresses: UserAddress[]
     initialProfile: { full_name: string | null; phone: string | null } | null
     userId: string | null
+    userEmail: string | null
     siteSettings: SiteSettings
 }
 
-type CustomerAddressInsert = Database["public"]["Tables"]["customer_addresses"]["Insert"]
-type CreatedOrder = Pick<Database["public"]["Tables"]["orders"]["Row"], "order_number">
+type CreatedOrder = Pick<{ order_number: string }, "order_number">
 
-export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses, initialProfile, userId, siteSettings }: CheckoutClientProps) {
-    const supabase = getSupabaseBrowserClient()
+export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses, initialProfile, userId, userEmail, siteSettings }: CheckoutClientProps) {
     const { cartItems, isLoading: cartLoading, clearCart, getCartTotal } = useCart()
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -52,10 +50,10 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
     const [selectedAddressId, setSelectedAddressId] = useState<string>("")
     const [useNewAddress, setUseNewAddress] = useState(initialAddresses.length === 0)
 
-    // ✅ Pre-fill billing from server-fetched profile
+    // ✅ Pre-fill billing from server-fetched profile + email
     const [formData, setFormData] = useState({
         full_name: initialProfile?.full_name ?? "",
-        email: "",
+        email: userEmail ?? "",
         phone: initialProfile?.phone ?? "",
         street: "",
         city: "",
@@ -123,15 +121,6 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
         } catch {}
     }, [])
 
-    // Pre-fill email from auth session — only for normal cart mode
-    useEffect(() => {
-        if (isQuoteMode) return
-        supabase.auth.getSession().then((result) => {
-            if (!result) return
-            const email = result.data?.session?.user?.email
-            if (email) setFormData(prev => ({ ...prev, email }))
-        }).catch(() => {})
-    }, [supabase, isQuoteMode])
 
     // Auto-select default (or first) saved address on mount — skip in quote mode
     useEffect(() => {
@@ -210,48 +199,8 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
 
 
 
-            // Create delivery address as JSONB object
-            const deliveryAddressObj = {
-                street: street,
-                city: city,
-                state: state,
-                pincode: pincode,
-                country: "Ireland"
-            }
-
-            // ✅ STEP 0: Save address to customer_addresses table (non-blocking)
-            const addressPayload: CustomerAddressInsert = {
-                user_id: userId,
-                full_name: full_name,
-                street: street,
-                city: city,
-                state: state,
-                pincode: pincode,
-                country: "Ireland",
-                phone: phone,
-                is_default: false,
-                label: null
-            }
-
-            // Save address non-blocking — skip in quote mode (address comes from quote)
-            if (!isQuoteMode) {
-                try {
-                    const { data: existing } = await supabase
-                        .from('customer_addresses')
-                        .select('id')
-                        .eq('user_id', userId)
-                        .eq('street', street)
-                        .eq('city', city)
-                        .eq('pincode', pincode)
-                        .limit(1)
-
-                    if (!existing || existing.length === 0) {
-                        await supabase.from('customer_addresses').insert([addressPayload])
-                    }
-                } catch (addrErr) {
-                    console.warn('[Checkout] Address save failed (non-blocking):', addrErr)
-                }
-            }
+            // Address saving is handled server-side in /api/checkout/create-order
+            // to avoid client-side Supabase calls that can hang and block checkout.
 
             // In quote mode, read fresh from sessionStorage at submit time
             // so we are never blocked by stale React state from useEffect timing
@@ -292,6 +241,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                 couponCode: isQuoteMode ? null : (appliedCoupon?.code ?? null),
                 customer: { full_name, email, phone },
                 deliveryAddress: { street, city, state, pincode, country: "Ireland" },
+                saveAddress: !isQuoteMode, // tell server to save address for this user
                 ...(isQuoteMode && liveQuoteData ? {
                     quoteId: liveQuoteData.quoteId,
                     quoteSnapshot,

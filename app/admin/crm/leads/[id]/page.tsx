@@ -30,6 +30,7 @@ interface ActivityLog {
   action: string
   note: string | null
   created_at: string
+  performer?: { full_name: string | null; email: string } | null
 }
 
 interface LinkedQuotation {
@@ -69,18 +70,29 @@ export default function LeadDetailPage() {
     fetchLogs()
     fetchQuotations()
     fetchTickets()
+
+    // Ensure data is fresh if user navigates back or focuses window
+    const handleFocus = () => {
+      fetchLogs()
+      fetchQuotations()
+      fetchTickets()
+    }
+    window.addEventListener("focus", handleFocus)
+    return () => window.removeEventListener("focus", handleFocus)
   }, [id])
 
   const fetchLead = async () => {
     try {
-      const res = await fetch("/api/admin/crm/leads", { credentials: "include" })
+      const res = await fetch(`/api/admin/crm/leads/${id}`, { credentials: "include" })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      const found = (data.leads ?? []).find((l: Lead) => l.id === id)
-      if (!found) { router.push("/admin/crm/leads"); return }
-      setLead(found)
-      setStatus(found.status)
-      setFollowUpDate(found.next_follow_up_date ?? "")
+      if (!res.ok || !data.lead) {
+        toast.error(data.error || "Lead not found")
+        router.push("/admin/crm/leads")
+        return
+      }
+      setLead(data.lead)
+      setStatus(data.lead.status)
+      setFollowUpDate(data.lead.next_follow_up_date ?? "")
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to load lead")
     } finally {
@@ -90,7 +102,10 @@ export default function LeadDetailPage() {
 
   const fetchQuotations = async () => {
     try {
-      const res = await fetch(`/api/admin/crm/leads/${id}/quotations`, { credentials: "include" })
+      const res = await fetch(`/api/admin/crm/leads/${id}/quotations?_t=${Date.now()}`, { 
+        credentials: "include",
+        cache: "no-store" 
+      })
       if (!res.ok) return
       const data = await res.json()
       setQuotations(data.quotations ?? [])
@@ -135,7 +150,10 @@ export default function LeadDetailPage() {
 
   const fetchLogs = async () => {
     try {
-      const res = await fetch(`/api/admin/crm/leads/${id}/activity`, { credentials: "include" })
+      const res = await fetch(`/api/admin/crm/leads/${id}/activity?_t=${Date.now()}`, { 
+        credentials: "include",
+        cache: "no-store" 
+      })
       if (!res.ok) return
       const data = await res.json()
       setLogs(data.logs ?? [])
@@ -146,7 +164,10 @@ export default function LeadDetailPage() {
 
   const fetchTickets = async () => {
     try {
-      const res = await fetch(`/api/admin/crm/leads/${id}/tickets`, { credentials: "include" })
+      const res = await fetch(`/api/admin/crm/leads/${id}/tickets?_t=${Date.now()}`, { 
+        credentials: "include",
+        cache: "no-store" 
+      })
       if (!res.ok) return
       const data = await res.json()
       setTickets(data.tickets ?? [])
@@ -330,14 +351,18 @@ export default function LeadDetailPage() {
 
           {/* Linked Quotations */}
           <Card>
-            <CardHeader><CardTitle>Linked Quotations</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Linked Quotations ({quotations.length})</CardTitle></CardHeader>
             <CardContent>
               {quotations.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No quotations yet</p>
+                <div className="text-center py-6">
+                  <FileText className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No quotations linked to this lead yet.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Use "Create Quote from Lead" to get started.</p>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {quotations.map(q => (
-                    <div key={q.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                    <div key={q.id} className="flex items-center justify-between p-4 neu-raised rounded-xl border-none">
                       <div>
                         <Link href={`/admin/quotations/${q.id}`} className="font-semibold text-primary hover:underline text-sm">
                           {q.quote_number}
@@ -349,7 +374,9 @@ export default function LeadDetailPage() {
                       <div className="flex items-center gap-2">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           q.status === "draft" ? "bg-blue-100 text-blue-800" :
+                          q.status === "sent" ? "bg-amber-100 text-amber-800" :
                           q.status === "accepted" ? "bg-green-100 text-green-800" :
+                          q.status === "declined" ? "bg-red-100 text-red-800" :
                           "bg-gray-100 text-gray-700"
                         }`}>{q.status}</span>
                         {q.status === "draft" && (
@@ -372,29 +399,43 @@ export default function LeadDetailPage() {
 
           {/* Linked Tickets */}
           <Card>
-            <CardHeader><CardTitle>Linked Tickets & Tasks</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Linked Tickets & Tasks ({tickets.length})</CardTitle></CardHeader>
             <CardContent>
               {tickets.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No tickets yet</p>
+                <div className="text-center py-6">
+                  <TicketIcon className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No tickets linked to this lead yet.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Use "Create Ticket / Task" to get started.</p>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {tickets.map(t => (
-                    <div key={t.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
-                      <div>
-                        <Link href={`/admin/tickets`} className="font-semibold text-primary hover:underline text-sm">
-                          {t.title}
-                        </Link>
+                    <Link href={`/admin/tickets?ticket_id=${t.id}`} key={t.id} className="flex items-center justify-between p-4 neu-raised rounded-xl border-none hover:bg-muted/40 transition-colors cursor-pointer">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{t.title}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
                           <span>{format(new Date(t.created_at), "dd MMM yyyy")}</span>
-                          <span className="capitalize px-1.5 py-0.5 bg-muted rounded text-[10px]">{t.priority}</span>
+                          <span className={`capitalize px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            t.priority === "urgent" ? "bg-red-100 text-red-700" :
+                            t.priority === "high" ? "bg-amber-100 text-amber-700" :
+                            t.priority === "medium" ? "bg-blue-100 text-blue-700" :
+                            "bg-gray-100 text-gray-700"
+                          }`}>{t.priority}</span>
+                          {t.assignee && (
+                            <span className="text-muted-foreground">→ {t.assignee.full_name || t.assignee.email}</span>
+                          )}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground capitalize">
-                          {t.status.replace("_", " ")}
-                        </span>
-                      </div>
-                    </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ml-3 ${
+                        t.status === "open" ? "bg-blue-100 text-blue-800" :
+                        t.status === "in_progress" ? "bg-amber-100 text-amber-800" :
+                        t.status === "resolved" ? "bg-green-100 text-green-800" :
+                        t.status === "closed" ? "bg-gray-100 text-gray-800" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        {t.status.replace("_", " ")}
+                      </span>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -423,18 +464,25 @@ export default function LeadDetailPage() {
             <CardHeader><CardTitle>Activity Log</CardTitle></CardHeader>
             <CardContent>
               {logs.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">No activity yet</p>
+                <p className="text-sm text-muted-foreground text-center py-6">No activity yet. Add a note above to start tracking interactions.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="relative pl-6 border-l-2 border-primary/20 space-y-4">
                   {logs.map(log => (
-                    <div key={log.id} className="flex gap-3 p-3 bg-muted/30 rounded-lg text-sm">
-                      <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
-                      <div className="flex-1">
-                        <p className="font-medium capitalize">{log.action.replace(/_/g, " ")}</p>
-                        {log.note && <p className="text-muted-foreground mt-0.5">{log.note}</p>}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(log.created_at), "dd MMM yyyy, HH:mm")}
-                        </p>
+                    <div key={log.id} className="relative">
+                      <div className="absolute -left-[25px] top-1 w-3 h-3 rounded-full bg-primary border-2 border-background" />
+                      <div className="p-3 neu-raised rounded-xl text-sm">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <p className="font-semibold capitalize">{log.action.replace(/_/g, " ")}</p>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(log.created_at), "dd MMM yyyy, HH:mm")}
+                          </span>
+                        </div>
+                        {log.note && <p className="text-muted-foreground mt-1">{log.note}</p>}
+                        {log.performer && (
+                          <p className="text-xs text-primary/70 mt-1.5 font-medium">
+                            — {log.performer.full_name || log.performer.email}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}

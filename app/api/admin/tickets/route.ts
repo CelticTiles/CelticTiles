@@ -91,6 +91,16 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
+    // Log ticket creation in lead's activity log if linked to a crm lead
+    if (lead_id) {
+      await supabase.from("activity_logs").insert({
+        lead_id: lead_id,
+        action: "ticket_created",
+        note: `Ticket "${title}" created`,
+        performed_by: session.userId
+      })
+    }
+
     if (ticket.assignee?.email) {
       // Fire-and-forget email dispatch
       sendTicketAssignmentEmail({

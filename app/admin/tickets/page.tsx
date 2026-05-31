@@ -10,13 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, Plus, Search, LayoutGrid, List as ListIcon, Calendar, MessageSquare, Clock, Users2 } from "lucide-react"
+import { Loader2, Plus, Search, LayoutGrid, List as ListIcon, Calendar, MessageSquare, Clock, Users2, Download } from "lucide-react"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 import type { Ticket, TicketComment } from "@/lib/supabase-types"
 import { format, parseISO } from "date-fns"
 
 const STATUSES = ["open", "assigned", "in_progress", "pending", "resolved", "closed"] as const
 const PRIORITIES = ["low", "medium", "high", "urgent"] as const
-const CATEGORIES = ["inventory", "showroom", "delivery", "sales", "customer_service", "maintenance"]
+const CATEGORIES = ["measurements", "quote", "installation"]
 
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-blue-100 text-blue-800 border-blue-200",
@@ -42,6 +44,7 @@ function TicketsContent() {
   // Filters
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [dueDateFilter, setDueDateFilter] = useState("")
   
   // Profiles and Leads for assignment
   const [profiles, setProfiles] = useState<any[]>([])
@@ -53,7 +56,7 @@ function TicketsContent() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [createForm, setCreateForm] = useState({
-    title: "", description: "", priority: "medium", category: "inventory", assigned_to: "", due_date: "", lead_id: "none"
+    title: "", description: "", priority: "medium", category: "measurements", assigned_to: "", due_date: "", lead_id: "none"
   })
 
   // Details Modal
@@ -77,6 +80,16 @@ function TicketsContent() {
       }
     }
   }, [searchParams])
+
+  useEffect(() => {
+    const ticketId = searchParams.get("ticket_id")
+    if (ticketId && tickets.length > 0) {
+      const found = tickets.find(t => t.id === ticketId)
+      if (found) {
+        openDetails(found)
+      }
+    }
+  }, [tickets, searchParams])
 
   const fetchTickets = async () => {
     try {
@@ -118,9 +131,15 @@ function TicketsContent() {
     if (!createForm.title) return toast.error("Title is required")
     setIsCreating(true)
     try {
+      const urlLeadId = searchParams.get("lead_id")
+      let finalLeadId = createForm.lead_id;
+      if (!finalLeadId || finalLeadId === "none") {
+        finalLeadId = urlLeadId || undefined;
+      }
+      
       const payload = {
         ...createForm,
-        lead_id: createForm.lead_id === "none" ? undefined : createForm.lead_id
+        lead_id: finalLeadId
       }
       const res = await fetch("/api/admin/tickets", {
         method: "POST",
@@ -197,9 +216,37 @@ function TicketsContent() {
       const matchSearch = t.title.toLowerCase().includes(search.toLowerCase()) || 
                           (t.assignee?.full_name?.toLowerCase() || "").includes(search.toLowerCase())
       const matchStatus = statusFilter === "all" || t.status === statusFilter
-      return matchSearch && matchStatus
+      const matchDate = !dueDateFilter || (t.due_date && t.due_date.startsWith(dueDateFilter))
+      return matchSearch && matchStatus && matchDate
     })
-  }, [tickets, search, statusFilter])
+  }, [tickets, search, statusFilter, dueDateFilter])
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF()
+    doc.setFontSize(16)
+    doc.text("Tickets & Tasks Report", 14, 20)
+    
+    if (dueDateFilter) {
+      doc.setFontSize(10)
+      doc.text(`Due Date Filter: ${dueDateFilter}`, 14, 28)
+    }
+
+    const tableData = filteredTickets.map(t => [
+      t.title,
+      t.status.replace("_", " ").toUpperCase(),
+      t.priority.toUpperCase(),
+      t.assignee?.full_name || "Unassigned",
+      t.due_date ? format(parseISO(t.due_date), "dd MMM yyyy") : "—"
+    ])
+
+    autoTable(doc, {
+      startY: dueDateFilter ? 32 : 25,
+      head: [["Title", "Status", "Priority", "Assignee", "Due Date"]],
+      body: tableData,
+    })
+
+    doc.save(`Tickets_Report_${format(new Date(), "yyyy-MM-dd")}.pdf`)
+  }
 
   // Board columns
   const columns = STATUSES.map(s => ({
@@ -232,6 +279,12 @@ function TicketsContent() {
             className="pl-9"
           />
         </div>
+        <Input 
+          type="date" 
+          value={dueDateFilter} 
+          onChange={(e) => setDueDateFilter(e.target.value)} 
+          className="w-36"
+        />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-36">
             <SelectValue placeholder="All Statuses" />
@@ -241,6 +294,9 @@ function TicketsContent() {
             {STATUSES.map(s => <SelectItem key={s} value={s}>{s.replace("_", " ")}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button variant="outline" onClick={handleDownloadPDF} className="h-10 border-border">
+          <Download className="h-4 w-4 mr-2" /> PDF
+        </Button>
         <div className="flex items-center bg-muted/50 p-1 rounded-lg">
           <Button 
             variant={view === "board" ? "secondary" : "ghost"} 
@@ -419,10 +475,13 @@ function TicketsContent() {
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label>Link to CRM Lead (Optional)</Label>
-                <Select value={createForm.lead_id} onValueChange={v => setCreateForm({...createForm, lead_id: v})}>
+                <Select value={createForm.lead_id || searchParams.get("lead_id") || "none"} onValueChange={v => setCreateForm({...createForm, lead_id: v})}>
                   <SelectTrigger><SelectValue placeholder="No Lead Selected" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No Lead</SelectItem>
+                    {searchParams.get("lead_id") && !leads.find(l => l.id === searchParams.get("lead_id")) && (
+                      <SelectItem value={searchParams.get("lead_id") as string}>Linked Lead</SelectItem>
+                    )}
                     {leads.map(l => (
                       <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                     ))}

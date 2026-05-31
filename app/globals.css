@@ -80,7 +80,8 @@
     border: 1px solid hsl(var(--neu-light) / 0.4);
   }
 
-  .neu-inset {
+  .neu-inset,
+  .neu-pressed {
     background: hsl(var(--neu-bg));
     box-shadow: var(--neu-shadow-inset);
     border: none;

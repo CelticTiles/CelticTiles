@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO } from "date-fns"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,7 +16,7 @@ import { Pagination } from "@/components/admin/Pagination"
 import { usePagination } from "@/hooks/usePagination"
 import { DeleteConfirmDialog } from "@/components/admin/DeleteConfirmDialog"
 import { toast } from "sonner"
-import { Search, Plus, Eye, Trash2, Loader2, Users2, AlertCircle, Calendar, Download } from "lucide-react"
+import { Search, Plus, Trash2, Loader2, Users2, AlertCircle, Calendar, Download } from "lucide-react"
 
 interface Lead {
   id: string
@@ -72,6 +73,7 @@ function exportLeadsToExcel(leads: Lead[], rangeLabel: string) {
 }
 
 export default function LeadsListPage() {
+  const router = useRouter()
   const [leads, setLeads]               = useState<Lead[]>([])
   const [isLoading, setIsLoading]       = useState(true)
   const [searchTerm, setSearchTerm]     = useState("")
@@ -254,12 +256,12 @@ export default function LeadsListPage() {
             placeholder="Search by name, email or phone..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="pl-9"
+            className="pl-9 neu-inset border-none"
           />
         </div>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40 neu-inset border-none">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
@@ -272,7 +274,7 @@ export default function LeadsListPage() {
         </Select>
 
         <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DateRangePreset)}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-44 neu-inset border-none">
             <Calendar className="w-4 h-4 mr-2 shrink-0" />
             <SelectValue placeholder="All Time" />
           </SelectTrigger>
@@ -289,7 +291,7 @@ export default function LeadsListPage() {
           variant="outline"
           onClick={handleExport}
           disabled={filteredLeads.length === 0}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 neu-raised border-none"
         >
           <Download className="w-4 h-4" />
           Export Excel
@@ -319,7 +321,7 @@ export default function LeadsListPage() {
       )}
 
       {/* Table */}
-      <Card>
+      <Card className="neu-inset border-none">
         <CardHeader>
           <CardTitle>All Leads ({filteredLeads.length})</CardTitle>
         </CardHeader>
@@ -338,9 +340,13 @@ export default function LeadsListPage() {
             />
           ) : (
             <>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {currentLeads.map(lead => (
-                  <div key={lead.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                  <div 
+                    key={lead.id} 
+                    className="flex items-center justify-between p-5 neu-raised border-transparent rounded-2xl cursor-pointer hover:scale-[1.01] transition-all"
+                    onClick={() => router.push(`/admin/crm/leads/${lead.id}`)}
+                  >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold shrink-0">
                         {lead.name[0]?.toUpperCase()}
@@ -363,13 +369,13 @@ export default function LeadsListPage() {
                           </span>
                         )}
                       </div>
-                      <Button size="sm" variant="outline" asChild>
-                        <Link href={`/admin/crm/leads/${lead.id}`}><Eye className="w-4 h-4" /></Link>
-                      </Button>
                       <Button
                         size="sm" variant="outline"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => setDeleteId(lead.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeleteId(lead.id)
+                        }}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

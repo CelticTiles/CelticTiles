@@ -18,7 +18,7 @@ import { useCart } from "@/hooks/useCart";
 import { toast } from "sonner";
 import { useWishlist } from "@/hooks/useWishlist";
 import type { Product } from "@/types";
-import { parseCoveragePerBox } from "@/components/products/tile-calculator";
+import { parseCoveragePerBox, parsePanelCoveragePerBox } from "@/components/products/tile-calculator";
 import { PopularProducts } from "@/components/products/PopularProducts";
 import type { Review } from "@/hooks/useProductReviews";
 
@@ -34,6 +34,12 @@ const TileCalculator = lazy(() =>
 
 type CalculatorValues =
   import("@/components/products/tile-calculator").CalculatorValues;
+
+// Detect wall panel products (have panel dimensions but no sqm_per_box / coverage)
+function isWallPanelProduct(product: Product): boolean {
+  return !!(product.panel_length && product.panel_width) &&
+    !product.sqm_per_box && !product.coverage;
+}
 
 interface Props {
   product: Product;
@@ -301,8 +307,9 @@ export default function ProductClient({
                 </div>
               )}
 
-              {/* Tile Calculator */}
-              {(!!product.pricePerSqm || !!product.coverage || !!product.sqm_per_box) && (
+              {/* Tile / Wall Panel Calculator */}
+              {(!!product.pricePerSqm || !!product.coverage || !!product.sqm_per_box ||
+                isWallPanelProduct(product)) && (
                 <Suspense
                   fallback={
                     <div className="h-48 bg-slate-50 rounded-xl animate-pulse" />
@@ -315,8 +322,8 @@ export default function ProductClient({
                 </Suspense>
               )}
 
-              {/* Quantity Selector - Only for non-sqm products */}
-              {!product.sqm_per_box && (
+              {/* Quantity Selector - Only for non-sqm and non-wall-panel products */}
+              {!product.sqm_per_box && !isWallPanelProduct(product) && (
                 <div className="space-y-2">
                   <h3 className="text-sm font-bold text-slate-900">Quantity</h3>
                   <div className="flex items-center gap-3">
@@ -376,7 +383,7 @@ export default function ProductClient({
                     }
                     
                     // Check stock availability
-                    const requestedQty = product.sqm_per_box
+                    const requestedQty = (product.sqm_per_box || isWallPanelProduct(product))
                       ? (calculatorValues?.boxes || 1)
                       : quantity;
                     
@@ -387,12 +394,18 @@ export default function ProductClient({
                     
                     setIsAddingToCart(true);
                     try {
-                      const qty = product.sqm_per_box
+                      const qty = (product.sqm_per_box || isWallPanelProduct(product))
                         ? (calculatorValues?.boxes || 1)
                         : quantity;
 
-                      const coverageVal = parseCoveragePerBox(product.sqm_per_box) || 1;
-                      const actualPrice = product.sqm_per_box
+                      // For tiles: price per sqm × sqm_per_box = price per box
+                      // For wall panels: price per sqm × panel_area_in_sqm = price per panel
+                      const coverageVal = product.sqm_per_box
+                        ? (parseCoveragePerBox(product.sqm_per_box) || 1)
+                        : isWallPanelProduct(product)
+                        ? (parsePanelCoveragePerBox(product.panel_length, product.panel_width) || 1)
+                        : 1;
+                      const actualPrice = (product.sqm_per_box || isWallPanelProduct(product))
                         ? product.price * coverageVal
                         : product.price;
 
@@ -436,9 +449,9 @@ export default function ProductClient({
                   ) : (
                     <>
                       <ShoppingCart className="h-5 w-5 mr-2" />
-                      {product.sqm_per_box
+                      {product.sqm_per_box || isWallPanelProduct(product)
                         ? calculatorValues?.hasValues
-                          ? `Add ${calculatorValues.boxes || 0} Boxes to Cart`
+                          ? `Add ${calculatorValues.boxes || 0} ${isWallPanelProduct(product) ? 'Panel(s)' : 'Boxes'} to Cart`
                           : "Add to Cart"
                         : `Add ${quantity} to Basket`}
                     </>

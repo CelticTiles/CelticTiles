@@ -2,9 +2,10 @@ import { NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { getServerSession } from "@/lib/loaders"
 
+export const dynamic = 'force-dynamic';
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession()
@@ -12,7 +13,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: leadId } = params
+    const { id: leadId } = await props.params
     if (!leadId) {
       return NextResponse.json({ error: 'Lead ID is required' }, { status: 400 })
     }

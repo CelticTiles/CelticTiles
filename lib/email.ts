@@ -51,6 +51,10 @@ const STATUS_CONTENT: Record<string, { subject: string; message: string }> = {
  * Creates a Nodemailer SMTP transporter using Office365 credentials from env.
  */
 function createTransporter() {
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
+    console.warn('[Email] SMTP configurations are missing. Email sending will be skipped.');
+    return null;
+  }
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT) || 587,
@@ -63,6 +67,9 @@ function createTransporter() {
       ciphers: 'TLSv1.2',
       rejectUnauthorized: false,
     },
+    connectionTimeout: 5000,  // 5s — fail fast if SMTP unreachable
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
   })
 }
 
@@ -110,6 +117,7 @@ export async function sendOrderStatusEmail({
     })
 
     const transporter = createTransporter()
+    if (!transporter) return { success: false, error: 'SMTP configurations are missing' }
 
     await transporter.sendMail({
       from: `"Celtic Tiles" <${process.env.SMTP_USER}>`,
@@ -150,6 +158,7 @@ export async function sendAdminNewOrderNotification({
     })
 
     const transporter = createTransporter()
+    if (!transporter) return { success: false, error: 'SMTP configurations are missing' }
 
     await transporter.sendMail({
       from: `"Celtic Tiles CRM" <${process.env.SMTP_USER}>`,
@@ -205,6 +214,7 @@ export async function sendTicketAssignmentEmail({
     `
 
     const transporter = createTransporter()
+    if (!transporter) return { success: false, error: 'SMTP configurations are missing' }
 
     await transporter.sendMail({
       from: `"Celtic Tiles CRM" <${process.env.SMTP_USER}>`,

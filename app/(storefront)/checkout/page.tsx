@@ -69,6 +69,7 @@ export default async function CheckoutPage() {
                         initialAddresses={initialAddresses}
                         initialProfile={initialProfile}
                         userId={session.userId ?? null}
+                        userEmail={session.userEmail ?? null}
                         siteSettings={siteSettings}
                     />
                 </Suspense>
