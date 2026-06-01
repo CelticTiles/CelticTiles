@@ -173,20 +173,20 @@ function TicketsContent() {
     }
   }
 
-  const handleUpdateStatus = async (status: string) => {
+  const handleUpdateField = async (fields: Partial<Ticket>) => {
     if (!selectedTicket) return
     setIsUpdating(true)
     try {
       const res = await fetch(`/api/admin/tickets/${selectedTicket.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status })
+        body: JSON.stringify(fields)
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setTickets(prev => prev.map(t => t.id === selectedTicket.id ? data.ticket : t))
       setSelectedTicket(data.ticket)
-      toast.success("Status updated")
+      toast.success("Ticket updated")
     } catch (error: any) {
       toast.error(error.message)
     } finally {
@@ -214,7 +214,8 @@ function TicketsContent() {
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
       const matchSearch = t.title.toLowerCase().includes(search.toLowerCase()) || 
-                          (t.assignee?.full_name?.toLowerCase() || "").includes(search.toLowerCase())
+                          (t.assignee?.full_name?.toLowerCase() || "").includes(search.toLowerCase()) ||
+                          (t.lead?.name?.toLowerCase() || "").includes(search.toLowerCase())
       const matchStatus = statusFilter === "all" || t.status === statusFilter
       const matchDate = !dueDateFilter || (t.due_date && t.due_date.startsWith(dueDateFilter))
       return matchSearch && matchStatus && matchDate
@@ -236,12 +237,13 @@ function TicketsContent() {
       t.status.replace("_", " ").toUpperCase(),
       t.priority.toUpperCase(),
       t.assignee?.full_name || "Unassigned",
+      t.lead?.name || "—",
       t.due_date ? format(parseISO(t.due_date), "dd MMM yyyy") : "—"
     ])
 
     autoTable(doc, {
       startY: dueDateFilter ? 32 : 25,
-      head: [["Title", "Status", "Priority", "Assignee", "Due Date"]],
+      head: [["Title", "Status", "Priority", "Assignee", "Lead/Customer", "Due Date"]],
       body: tableData,
     })
 
@@ -506,7 +508,7 @@ function TicketsContent() {
           {selectedTicket && (
             <div className="flex flex-col max-h-[85vh]">
               {/* Header */}
-              <div className="p-5 border-b border-border bg-card">
+              <div className="p-5 pr-14 border-b border-border bg-card">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
@@ -523,7 +525,7 @@ function TicketsContent() {
                     </div>
                     <DialogTitle className="text-xl">{selectedTicket.title}</DialogTitle>
                   </div>
-                  <Select value={selectedTicket.status} onValueChange={handleUpdateStatus} disabled={isUpdating}>
+                  <Select value={selectedTicket.status} onValueChange={(v) => handleUpdateField({ status: v })} disabled={isUpdating}>
                     <SelectTrigger className={`w-36 h-8 text-xs font-semibold ${STATUS_COLORS[selectedTicket.status]}`}>
                       <SelectValue />
                     </SelectTrigger>
@@ -548,25 +550,44 @@ function TicketsContent() {
                   <div>
                     <p className="text-muted-foreground text-xs mb-1">Assignee</p>
                     <div className="flex items-center gap-2 font-medium">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
-                        {selectedTicket.assignee ? selectedTicket.assignee.full_name?.charAt(0) : "?"}
-                      </div>
-                      {selectedTicket.assignee ? selectedTicket.assignee.full_name : "Unassigned"}
+                      <Select 
+                        value={selectedTicket.assigned_to || "unassigned"} 
+                        onValueChange={(v) => handleUpdateField({ assigned_to: v === "unassigned" ? null : v })}
+                        disabled={isUpdating}
+                      >
+                        <SelectTrigger className="h-8 py-1 px-2 text-xs font-semibold border-border/60 bg-transparent hover:bg-muted/50 w-[160px]">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[8px] font-bold shrink-0">
+                              {selectedTicket.assignee ? selectedTicket.assignee.full_name?.charAt(0) : "?"}
+                            </div>
+                            <SelectValue placeholder="Unassigned" />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">Unassigned</SelectItem>
+                          {profiles.map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs mb-1">Created By</p>
-                    <div className="font-medium">{selectedTicket.creator?.full_name || "System"}</div>
+                    <div className="font-medium pt-1.5">{selectedTicket.creator?.full_name || "System"}</div>
                   </div>
-                  {selectedTicket.due_date && (
-                    <div>
-                      <p className="text-muted-foreground text-xs mb-1">Due Date</p>
-                      <div className="flex items-center gap-1.5 font-medium text-amber-700">
-                        <Calendar className="w-4 h-4" />
-                        {format(parseISO(selectedTicket.due_date), "MMM d, yyyy")}
-                      </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs mb-1">Due Date</p>
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <Input 
+                        type="date"
+                        value={selectedTicket.due_date ? selectedTicket.due_date.substring(0, 10) : ""}
+                        onChange={(e) => handleUpdateField({ due_date: e.target.value ? e.target.value : null })}
+                        disabled={isUpdating}
+                        className="h-8 py-1 px-2 text-xs font-semibold border-border/60 bg-transparent hover:bg-muted/50 w-[140px] focus-visible:ring-0 focus-visible:ring-offset-0"
+                      />
                     </div>
-                  )}
+                  </div>
                   {selectedTicket.lead && (
                     <div>
                       <p className="text-muted-foreground text-xs mb-1">Linked Lead</p>
