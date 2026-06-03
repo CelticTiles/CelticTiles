@@ -10,6 +10,9 @@ interface InvoiceItem {
   quantity: number
   unit_price: number
   subtotal: number
+  vat_rate?: number
+  type?: string
+  label?: string
 }
 
 interface InvoiceAddress {
@@ -33,6 +36,9 @@ export interface InvoiceOrderData {
   items: InvoiceItem[]
   delivery_address: InvoiceAddress | null
   source?: string
+  paid_amount?: number
+  sales_rep?: string
+  acc_ref?: string
 }
 
 async function loadLogoDataUri(): Promise<string | null> {
@@ -62,7 +68,7 @@ function formatPaymentMethod(method: string | null): string {
 const PAGE_H = 297
 const PAGE_W = 210
 const MARGIN = 14
-const FOOTER_H = 52   // height reserved for the 3 boxes + red bar
+const FOOTER_H = 60   // height reserved for the 3 boxes + red bar
 const FOOTER_TOP = PAGE_H - FOOTER_H - 6  // Y where footer starts
 
 function drawHeader(doc: jsPDF, logoDataUri: string | null, order: InvoiceOrderData) {
@@ -118,12 +124,12 @@ function drawHeader(doc: jsPDF, logoDataUri: string | null, order: InvoiceOrderD
   doc.text(order.customer_name || "", MARGIN + boxW + 8, boxY + 12)
   doc.text(formatPaymentMethod(order.payment_method), MARGIN + boxW + 8, boxY + 19)
 
-  // Meta row
+  // Meta row — 8 columns matching invoice reference
   const metaY = boxY + boxH + 6
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(7.5)
-  const cols = [MARGIN, 50, 88, 120, 155]
-  const labels = ["Inv No.", "Tax Date", "Cust. Order No.", "Sales Rep", "Delivery/Collection"]
+  doc.setFontSize(6.8)
+  const cols = [MARGIN, 36, 57, 80, 101, 127, 150, 176]
+  const labels = ["Inv No.", "Acc Ref", "Tax Date", "Del Date", "Cust. Order No.", "Sales Rep", "Delivery/Collection", "Collected By"]
   labels.forEach((lbl, i) => doc.text(lbl, cols[i], metaY))
 
   doc.setFont("helvetica", "normal")
@@ -132,10 +138,13 @@ function drawHeader(doc: jsPDF, logoDataUri: string | null, order: InvoiceOrderD
     : "Delivery"
   const values = [
     order.order_number,
+    order.acc_ref || "-",
     format(new Date(order.created_at), "dd/MM/yyyy"),
-    order.order_number,
-    "WEB",
+    "",
+    "",
+    order.sales_rep || "WEB",
     delivery,
+    "",
   ]
   values.forEach((val, i) => doc.text(val, cols[i], metaY + 5))
 
@@ -148,7 +157,7 @@ function drawFooter(doc: jsPDF, order: InvoiceOrderData, pageNum: number, totalP
   const fTop = ph - FOOTER_H - 2
 
   const bW1 = 70, bW2 = 42, bW3 = 60, gap = 5
-  const bH = 36
+  const bH = 44
 
   doc.setDrawColor(0)
   doc.setLineWidth(0.3)
@@ -159,61 +168,27 @@ function drawFooter(doc: jsPDF, order: InvoiceOrderData, pageNum: number, totalP
   doc.setFontSize(8)
   doc.text("Banking Details:", MARGIN + 2, fTop + 5)
   doc.setFont("helvetica", "normal")
-  doc.text(["AIB", "Sort Code: 932515", "Account No: 97805024"], MARGIN + 2, fTop + 10)
+  const bankLines = ["AIB", "Sort Code: 932515", "Account No: 97805024"]
+  if (order.acc_ref) bankLines.push(`Acc Ref: ${order.acc_ref}`)
+  doc.text(bankLines, MARGIN + 2, fTop + 10)
 
   // Box 2 — Signature
   doc.rect(MARGIN + bW1 + gap, fTop, bW2, bH)
   doc.setFont("helvetica", "bold")
   doc.text("Signature", MARGIN + bW1 + gap + 5, fTop + 5)
 
-  // Box 3 — Totals (only on last page)
+  // Box 3 — Totals
   const box3X = pw - MARGIN - bW3
   doc.rect(box3X, fTop, bW3, bH)
 
+  // Use order-level subtotal (net) and tax directly — matches reference PDF layout
   const subtotal = safeNumber(order.subtotal) || Math.max(0, safeNumber(order.total) - safeNumber(order.tax) - safeNumber(order.shipping_fee))
   const vatAmount = safeNumber(order.tax)
-  const vatRate =
-    safeNumber(order.total) > 0 && safeNumber(order.tax) > 0
-      ? Math.round((safeNumber(order.tax) / Math.max(safeNumber(order.total) - safeNumber(order.tax), 1)) * 10000) / 100
-      : 23
-
-  let standardNetSubtotal = 0
-  let zeroRatedNetSubtotal = 0
-  let standardVatRate = vatRate > 0 ? Math.round(vatRate) : 23
-
-  if (order.items && order.items.length > 0) {
-    order.items.forEach((item: any) => {
-      if (item.type === "section_header") return
-      let itemVatRate = item.vat_rate !== undefined ? safeNumber(item.vat_rate) : vatRate
-      let itemSubtotal = safeNumber(item.subtotal)
-      let netAmount = 0
-      if (order.source === "quotation") {
-        netAmount = itemSubtotal / (1 + itemVatRate / 100)
-      } else {
-        netAmount = itemSubtotal
-      }
-      if (itemVatRate > 0) {
-        standardNetSubtotal += netAmount
-        standardVatRate = Math.round(itemVatRate)
-      } else {
-        zeroRatedNetSubtotal += netAmount
-      }
-    })
-  } else {
-    if (vatAmount > 0) {
-      standardNetSubtotal = subtotal
-    } else {
-      zeroRatedNetSubtotal = subtotal
-    }
-  }
 
   const lines: [string, string][] = []
-  if (standardNetSubtotal > 0.005 || (standardNetSubtotal === 0 && zeroRatedNetSubtotal === 0)) {
-    lines.push([`Goods @ ${standardVatRate}%`, `€${standardNetSubtotal.toFixed(2)}`])
-    lines.push([`VAT @ ${standardVatRate}%`, `€${vatAmount.toFixed(2)}`])
-  }
-  if (zeroRatedNetSubtotal > 0.005) {
-    lines.push([`Goods @ 0%`, `€${zeroRatedNetSubtotal.toFixed(2)}`])
+  lines.push(["Subtotal", `€${subtotal.toFixed(2)}`])
+  if (vatAmount > 0) {
+    lines.push(["VAT Total", `€${vatAmount.toFixed(2)}`])
   }
   if (safeNumber(order.discount) > 0) {
     lines.push(["Discount", `-€${safeNumber(order.discount).toFixed(2)}`])
@@ -231,6 +206,26 @@ function drawFooter(doc: jsPDF, order: InvoiceOrderData, pageNum: number, totalP
     doc.text(value, pw - MARGIN - 2, ly, { align: "right" })
     ly += 5.2
   }
+
+  // Payment method section — divider line + method label + value
+  const divY = ly + 0.8
+  doc.setLineWidth(0.2)
+  doc.line(box3X + 1, divY, pw - MARGIN - 1, divY)
+  ly = divY + 4
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(7)
+  doc.text("Payment Method", box3X + 2, ly)
+  ly += 4.5
+  doc.setFont("helvetica", "normal")
+  const paidAmount = safeNumber(order.paid_amount)
+  const totalAmt = safeNumber(order.total)
+  if (paidAmount > 0 && paidAmount < totalAmt) {
+    doc.text(`CF €${paidAmount.toFixed(2)}`, box3X + 2, ly)
+    ly += 4
+    doc.text(`Bal: €${(totalAmt - paidAmount).toFixed(2)}`, box3X + 2, ly)
+    ly += 4
+  }
+  doc.text(formatPaymentMethod(order.payment_method), box3X + 2, ly)
 
   // Payment method line below boxes
   const pmY = fTop + bH + 3
