@@ -245,6 +245,17 @@ export async function convertQuotationToOrder(quotationId: string) {
     throw new Error("Quotation not found");
   }
 
+  const quoteItems = (quote.items || []).filter((i: any) => i.type === "product");
+  const undiscountedNetSubtotal = quoteItems.reduce((sum: number, i: any) => {
+    const amount = Number(i.amount) || (Number(i.unit_price) * Number(i.quantity)) || 0;
+    const vatAmount = Number(i.vat_amount) || 0;
+    return sum + (amount - vatAmount);
+  }, 0);
+  const tax = Number(quote.vat_total) || 0;
+  const total = Number(quote.total) || 0;
+  const discountedNetSubtotal = total - tax;
+  const netDiscount = Math.max(0, undiscountedNetSubtotal - discountedNetSubtotal);
+
   // Create order from quotation
   const orderData = {
     customer_name: quote.customer_name,
@@ -252,10 +263,10 @@ export async function convertQuotationToOrder(quotationId: string) {
     customer_phone: quote.customer_phone || null,
     customer_id: quote.lead_id ? quote.lead_id.toString() : (quote.customer_email || quote.customer_name),
     items: quote.items,
-    subtotal: quote.subtotal,
-    tax: 0,
-    discount: 0,
-    total: quote.total,
+    subtotal: undiscountedNetSubtotal,
+    tax: tax,
+    discount: netDiscount,
+    total: total,
     payment_status: "unpaid",
     status: "New",
     source: "quotation",

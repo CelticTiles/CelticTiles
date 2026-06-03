@@ -68,6 +68,7 @@ export default function ProductClient({
   const { addToWishlist, removeFromWishlist, isInWishlist: isInWishlistDB } = useWishlist();  // ✅ Use DB version
   const isLoggedIn = !!session.userId;
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const hasCalculator = !!product.pricePerSqm || !!product.coverage || !!product.sqm_per_box || isWallPanelProduct(product);
 
   // Ensure images is an array and has at least one image
   const images = Array.isArray(product.images) && product.images.length > 0 
@@ -369,8 +370,8 @@ export default function ProductClient({
                   <Button
                     variant="default"
                     size="lg"
-                    className="flex-1 h-12 bg-primary hover:bg-primary-dark text-white font-bold rounded-md transition-all disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    disabled={isAddingToCart || product.stock === 0}
+                    className="flex-1 h-12 bg-primary hover:bg-primary-dark text-white font-bold rounded-md transition-all disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                    disabled={isAddingToCart || product.stock === 0 || (hasCalculator && !calculatorValues?.hasValues)}
                     onClick={async () => {
                     if (!isLoggedIn) {
                       window.location.href = "/login";
@@ -444,6 +445,8 @@ export default function ProductClient({
                     <>
                       ❌ Out of Stock
                     </>
+                  ) : hasCalculator && !calculatorValues?.hasValues ? (
+                    "Please Calculate Required Coverage"
                   ) : !isLoggedIn ? (
                     "Login to Add to Cart"
                   ) : (

@@ -58,6 +58,8 @@ function TicketsContent() {
   const [createForm, setCreateForm] = useState({
     title: "", description: "", priority: "medium", category: "measurements", assigned_to: "", due_date: "", lead_id: "none"
   })
+  const [leadSearchQuery, setLeadSearchQuery] = useState("")
+  const [leadDropdownOpen, setLeadDropdownOpen] = useState(false)
 
   // Details Modal
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
@@ -134,7 +136,7 @@ function TicketsContent() {
       const urlLeadId = searchParams.get("lead_id")
       let finalLeadId = createForm.lead_id;
       if (!finalLeadId || finalLeadId === "none") {
-        finalLeadId = urlLeadId || undefined;
+        finalLeadId = urlLeadId || "";
       }
       
       const payload = {
@@ -475,20 +477,76 @@ function TicketsContent() {
                 <Label>Due Date</Label>
                 <Input type="date" value={createForm.due_date} onChange={e => setCreateForm({...createForm, due_date: e.target.value})} />
               </div>
-              <div className="space-y-1.5 col-span-2">
+              <div className="space-y-1.5 col-span-2 relative">
                 <Label>Link to CRM Lead (Optional)</Label>
-                <Select value={createForm.lead_id || searchParams.get("lead_id") || "none"} onValueChange={v => setCreateForm({...createForm, lead_id: v})}>
-                  <SelectTrigger><SelectValue placeholder="No Lead Selected" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Lead</SelectItem>
-                    {searchParams.get("lead_id") && !leads.find(l => l.id === searchParams.get("lead_id")) && (
-                      <SelectItem value={searchParams.get("lead_id") as string}>Linked Lead</SelectItem>
-                    )}
-                    {leads.map(l => (
-                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setLeadDropdownOpen(!leadDropdownOpen)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-sm bg-white border border-[#e2e8f0] rounded-md shadow-sm text-left hover:bg-gray-50 focus:outline-none"
+                  >
+                    <span className="truncate">
+                      {(() => {
+                        const selectedId = createForm.lead_id === "none" ? searchParams.get("lead_id") : createForm.lead_id
+                        const selectedLead = leads.find(l => l.id === selectedId)
+                        return selectedLead ? `${selectedLead.name} (${selectedLead.email})` : "No Lead Selected"
+                      })()}
+                    </span>
+                    <svg className="h-4 w-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {leadDropdownOpen && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto p-2 space-y-2">
+                      <Input
+                        placeholder="Search lead by name or email..."
+                        value={leadSearchQuery}
+                        onChange={e => setLeadSearchQuery(e.target.value)}
+                        className="h-8"
+                        autoFocus
+                      />
+                      <div className="divide-y divide-gray-100 max-h-44 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCreateForm({ ...createForm, lead_id: "none" })
+                            setLeadSearchQuery("")
+                            setLeadDropdownOpen(false)
+                          }}
+                          className="w-full text-left px-2 py-2 text-xs text-red-600 hover:bg-gray-100 rounded"
+                        >
+                          No Lead (Clear Selection)
+                        </button>
+                        {(() => {
+                          const query = leadSearchQuery.toLowerCase().trim()
+                          const filtered = leads.filter(l =>
+                            (l.name || "").toLowerCase().includes(query) ||
+                            (l.email || "").toLowerCase().includes(query)
+                          )
+                          if (filtered.length === 0) {
+                            return <p className="text-xs text-muted-foreground text-center py-2">No leads found</p>
+                          }
+                          return filtered.map(l => (
+                            <button
+                              key={l.id}
+                              type="button"
+                              onClick={() => {
+                                setCreateForm({ ...createForm, lead_id: l.id })
+                                setLeadSearchQuery("")
+                                setLeadDropdownOpen(false)
+                              }}
+                              className="w-full text-left px-2 py-2 text-xs hover:bg-gray-100 rounded flex justify-between items-center gap-2"
+                            >
+                              <span className="font-semibold text-foreground truncate">{l.name}</span>
+                              <span className="text-muted-foreground text-[10px] truncate max-w-[150px]">{l.email}</span>
+                            </button>
+                          ))
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -525,7 +583,7 @@ function TicketsContent() {
                     </div>
                     <DialogTitle className="text-xl">{selectedTicket.title}</DialogTitle>
                   </div>
-                  <Select value={selectedTicket.status} onValueChange={(v) => handleUpdateField({ status: v })} disabled={isUpdating}>
+                  <Select value={selectedTicket.status} onValueChange={(v) => handleUpdateField({ status: v as typeof selectedTicket.status })} disabled={isUpdating}>
                     <SelectTrigger className={`w-36 h-8 text-xs font-semibold ${STATUS_COLORS[selectedTicket.status]}`}>
                       <SelectValue />
                     </SelectTrigger>

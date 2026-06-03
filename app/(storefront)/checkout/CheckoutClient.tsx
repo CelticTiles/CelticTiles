@@ -220,21 +220,37 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                 return
             }
 
-            const quoteSnapshot = isQuoteMode && liveQuoteData ? {
-                items: liveQuoteData.items.filter((i: any) => i.type === "product").map((i: any) => ({
-                    product_id: i.product_id || "",
-                    product_name: i.description || i.product_name || "Item",
-                    quantity: Number(i.quantity) || 0,
-                    unit_price: Number(i.unit_price) || 0,
-                    subtotal: Number(i.amount) || Number(i.subtotal) || (Number(i.unit_price) * Number(i.quantity)) || 0,
-                })),
-                subtotal: liveQuoteData.subtotal,
-                tax: 0,
-                shipping_fee: 0,
-                discount: liveQuoteData.quoteDiscount ?? 0,
-                coupon_code: null,
-                total: liveQuoteData.total,
-            } : null
+            let quoteSnapshot = null
+            if (isQuoteMode && liveQuoteData) {
+                const quoteItems = liveQuoteData.items.filter((i: any) => i.type === "product")
+                const undiscountedNetSubtotal = quoteItems.reduce((sum: number, i: any) => {
+                    const amount = Number(i.amount) || (Number(i.unit_price) * Number(i.quantity)) || 0
+                    const vatAmount = Number(i.vat_amount) || 0
+                    return sum + (amount - vatAmount)
+                }, 0)
+                const tax = Number(liveQuoteData.vat_total) || 0
+                const total = Number(liveQuoteData.total) || 0
+                const discountedNetSubtotal = total - tax
+                const netDiscount = Math.max(0, undiscountedNetSubtotal - discountedNetSubtotal)
+
+                quoteSnapshot = {
+                    items: quoteItems.map((i: any) => ({
+                        product_id: i.product_id || "",
+                        product_name: i.description || i.product_name || "Item",
+                        quantity: Number(i.quantity) || 0,
+                        unit_price: Number(i.unit_price) || 0,
+                        subtotal: Number(i.amount) || Number(i.subtotal) || (Number(i.unit_price) * Number(i.quantity)) || 0,
+                        vat_rate: Number(i.vat_rate) !== undefined ? Number(i.vat_rate) : 23,
+                        vat_amount: Number(i.vat_amount) !== undefined ? Number(i.vat_amount) : 0,
+                    })),
+                    subtotal: undiscountedNetSubtotal,
+                    tax,
+                    shipping_fee: 0,
+                    discount: netDiscount,
+                    coupon_code: null,
+                    total,
+                }
+            }
 
             const checkoutPayload: Record<string, any> = {
                 paymentMethod,

@@ -32,6 +32,7 @@ export interface InvoiceOrderData {
   total: number
   items: InvoiceItem[]
   delivery_address: InvoiceAddress | null
+  source?: string
 }
 
 async function loadLogoDataUri(): Promise<string | null> {
@@ -146,8 +147,8 @@ function drawFooter(doc: jsPDF, order: InvoiceOrderData, pageNum: number, totalP
   const pw = doc.internal.pageSize.getWidth()
   const fTop = ph - FOOTER_H - 2
 
-  const bW1 = 74, bW2 = 45, bW3 = 54, gap = 5
-  const bH = 34
+  const bW1 = 70, bW2 = 42, bW3 = 60, gap = 5
+  const bH = 36
 
   doc.setDrawColor(0)
   doc.setLineWidth(0.3)
@@ -170,21 +171,65 @@ function drawFooter(doc: jsPDF, order: InvoiceOrderData, pageNum: number, totalP
   doc.rect(box3X, fTop, bW3, bH)
 
   const subtotal = safeNumber(order.subtotal) || Math.max(0, safeNumber(order.total) - safeNumber(order.tax) - safeNumber(order.shipping_fee))
-  const lines: [string, string][] = [
-    ["Subtotal", `€${subtotal.toFixed(2)}`],
-    ["VAT Total", `€${safeNumber(order.tax).toFixed(2)}`],
-  ]
-  if (safeNumber(order.discount) > 0) lines.push(["Discount", `-€${safeNumber(order.discount).toFixed(2)}`])
-  if (safeNumber(order.shipping_fee) > 0) lines.push(["Shipping", `€${safeNumber(order.shipping_fee).toFixed(2)}`])
+  const vatAmount = safeNumber(order.tax)
+  const vatRate =
+    safeNumber(order.total) > 0 && safeNumber(order.tax) > 0
+      ? Math.round((safeNumber(order.tax) / Math.max(safeNumber(order.total) - safeNumber(order.tax), 1)) * 10000) / 100
+      : 23
+
+  let standardNetSubtotal = 0
+  let zeroRatedNetSubtotal = 0
+  let standardVatRate = vatRate > 0 ? Math.round(vatRate) : 23
+
+  if (order.items && order.items.length > 0) {
+    order.items.forEach((item: any) => {
+      if (item.type === "section_header") return
+      let itemVatRate = item.vat_rate !== undefined ? safeNumber(item.vat_rate) : vatRate
+      let itemSubtotal = safeNumber(item.subtotal)
+      let netAmount = 0
+      if (order.source === "quotation") {
+        netAmount = itemSubtotal / (1 + itemVatRate / 100)
+      } else {
+        netAmount = itemSubtotal
+      }
+      if (itemVatRate > 0) {
+        standardNetSubtotal += netAmount
+        standardVatRate = Math.round(itemVatRate)
+      } else {
+        zeroRatedNetSubtotal += netAmount
+      }
+    })
+  } else {
+    if (vatAmount > 0) {
+      standardNetSubtotal = subtotal
+    } else {
+      zeroRatedNetSubtotal = subtotal
+    }
+  }
+
+  const lines: [string, string][] = []
+  if (standardNetSubtotal > 0.005 || (standardNetSubtotal === 0 && zeroRatedNetSubtotal === 0)) {
+    lines.push([`Goods @ ${standardVatRate}%`, `€${standardNetSubtotal.toFixed(2)}`])
+    lines.push([`VAT @ ${standardVatRate}%`, `€${vatAmount.toFixed(2)}`])
+  }
+  if (zeroRatedNetSubtotal > 0.005) {
+    lines.push([`Goods @ 0%`, `€${zeroRatedNetSubtotal.toFixed(2)}`])
+  }
+  if (safeNumber(order.discount) > 0) {
+    lines.push(["Discount", `-€${safeNumber(order.discount).toFixed(2)}`])
+  }
+  if (safeNumber(order.shipping_fee) > 0) {
+    lines.push(["Shipping", `€${safeNumber(order.shipping_fee).toFixed(2)}`])
+  }
   lines.push(["Total", `€${safeNumber(order.total).toFixed(2)}`])
 
-  doc.setFontSize(8)
-  let ly = fTop + 5
+  doc.setFontSize(7.5)
+  let ly = fTop + 4.5
   for (const [label, value] of lines) {
     doc.setFont("helvetica", label === "Total" ? "bold" : "normal")
     doc.text(label, box3X + 2, ly)
     doc.text(value, pw - MARGIN - 2, ly, { align: "right" })
-    ly += 6
+    ly += 5.2
   }
 
   // Payment method line below boxes
@@ -226,12 +271,58 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
       ? Math.round((safeNumber(order.tax) / Math.max(safeNumber(order.total) - safeNumber(order.tax), 1)) * 10000) / 100
       : 0
 
-  const rows = order.items.map((item) => {
+  const validItems: any[] = [];
+  for (let i = 0; i < order.items.length; i++) {
+    const item = order.items[i];
+    if ((item as any).type === "section_header") {
+      let hasProducts = false;
+      for (let j = i + 1; j < order.items.length; j++) {
+        if (order.items[j].product_id || (order.items[j] as any).type === "product") {
+          hasProducts = true;
+          break;
+        }
+        if ((order.items[j] as any).type === "section_header") {
+          break;
+        }
+      }
+      if (hasProducts) {
+        validItems.push(item);
+      }
+    } else {
+      validItems.push(item);
+    }
+  }
+
+  const rows = validItems.map((item) => {
+    if (item.type === "section_header") {
+      return [
+        {
+          content: item.label || item.product_name || "",
+          colSpan: 6,
+          styles: {
+            fontStyle: "bold" as const,
+            fillColor: [255, 255, 255] as [number, number, number],
+            textColor: [0, 0, 0] as [number, number, number],
+          },
+        },
+      ];
+    }
+
     const qty = safeNumber(item.quantity)
-    const unitPrice = safeNumber(item.unit_price)
-    const amount = safeNumber(item.subtotal)
-    const vat = vatRate > 0 ? amount * (vatRate / 100) : 0
-    // Use product_id only if it looks like a real SKU (not a UUID)
+    let itemVatRate = item.vat_rate !== undefined ? safeNumber(item.vat_rate) : vatRate
+    
+    let unitPrice = safeNumber(item.unit_price)
+    let amount = safeNumber(item.subtotal)
+    let vat = 0
+
+    if (order.source === "quotation") {
+      unitPrice = unitPrice / (1 + itemVatRate / 100)
+      amount = amount / (1 + itemVatRate / 100)
+      vat = amount * (itemVatRate / 100)
+    } else {
+      vat = amount * (itemVatRate / 100)
+    }
+
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     const code = uuidPattern.test(item.product_id ?? "") ? "-" : (item.product_id || "-")
     return [

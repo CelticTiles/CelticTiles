@@ -135,17 +135,19 @@ export async function POST(request: NextRequest) {
 
     // ✅ Save address server-side (non-blocking) — avoids client-side Supabase hangs
     if (!isQuoteMode && body.saveAddress && street && city && pincode) {
-      supabase
-        .from('customer_addresses')
-        .select('id')
-        .eq('user_id', session.userId)
-        .eq('street', street)
-        .eq('city', city)
-        .eq('pincode', pincode)
-        .limit(1)
-        .then(({ data: existing }) => {
+      void (async () => {
+        try {
+          const { data: existing } = await supabase
+            .from('customer_addresses')
+            .select('id')
+            .eq('user_id', session.userId)
+            .eq('street', street)
+            .eq('city', city)
+            .eq('pincode', pincode)
+            .limit(1)
+
           if (!existing || existing.length === 0) {
-            supabase.from('customer_addresses').insert([{
+            const { error: insertErr } = await supabase.from('customer_addresses').insert([{
               user_id: session.userId,
               full_name: fullName,
               street,
@@ -156,16 +158,17 @@ export async function POST(request: NextRequest) {
               phone,
               is_default: false,
               label: null,
-            }]).then(() => {
+            }])
+            if (insertErr) {
+              console.warn('[create-order] Address insert failed (non-critical):', insertErr)
+            } else {
               console.log('[create-order] Address saved successfully')
-            }).catch((err) => {
-              console.warn('[create-order] Address insert failed (non-critical):', err)
-            })
+            }
           }
-        })
-        .catch((err) => {
-          console.warn('[create-order] Address lookup failed (non-critical):', err)
-        })
+        } catch (err) {
+          console.warn('[create-order] Address save failed (non-critical):', err)
+        }
+      })()
     }
 
     let orderNumber = generateSecureOrderNumber()
@@ -255,7 +258,7 @@ export async function POST(request: NextRequest) {
       ) as Database["public"]["Tables"]["orders"]["Insert"]["status_history"],
       order_number: orderNumber,
       stripe_session_id: paymentMethod === "card" ? stripeSessionId : null,
-      source: "web",
+      source: isQuoteMode ? "quotation" : "web",
     }
 
     const { data, error } = await supabase

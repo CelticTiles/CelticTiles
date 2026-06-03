@@ -84,11 +84,14 @@ export function QuotationBuilder({
         const amountIncVat = baseAmount - discountAmount;
         totalIncVat += amountIncVat;
 
+        const itemVatRate = item.vat_rate !== undefined ? item.vat_rate : vatRate;
+        const itemVat = itemVatRate > 0 ? amountIncVat * (itemVatRate / (100 + itemVatRate)) : 0;
+
         return {
           ...item,
           amount: amountIncVat,
-          vat_amount: 0,
-          vat_rate: vatRate,
+          vat_amount: itemVat,
+          vat_rate: itemVatRate,
         };
       }
       return item;
@@ -102,11 +105,21 @@ export function QuotationBuilder({
 
     const subtotalAfterDiscount = totalIncVat - quoteDiscountAmount;
 
+    // Recalculate VAT total after quote-level discount
+    let finalVatTotal = 0;
+    updatedItems.forEach((item) => {
+      if (item.type === "product") {
+        const itemDiscountedAmount = item.amount * (1 - (formData.discount_enabled ? (formData.discount_percentage / 100) : 0));
+        const itemVatRate = item.vat_rate !== undefined ? item.vat_rate : vatRate;
+        finalVatTotal += itemVatRate > 0 ? itemDiscountedAmount * (itemVatRate / (100 + itemVatRate)) : 0;
+      }
+    });
+
     return {
       items: updatedItems,
       subtotal: subtotalAfterDiscount,
       quoteDiscount: quoteDiscountAmount,
-      vat_total: 0,
+      vat_total: finalVatTotal,
       total: subtotalAfterDiscount,
     };
   }, [items, vatRate, formData.discount_enabled, formData.discount_percentage]);
@@ -115,14 +128,6 @@ export function QuotationBuilder({
     setFormData((prev) => ({
       ...prev,
       [field]: value,
-      ...(field === "delivery_collection" && value === "Collection"
-        ? {
-            delivery_address_line1: "",
-            delivery_address_line2: "",
-            delivery_city: "",
-            delivery_postcode: "",
-          }
-        : {}),
     }));
   };
 
@@ -152,7 +157,7 @@ export function QuotationBuilder({
         discount_percentage: 0,
         amount: product.price || 0,
         vat_rate: vatRate,
-        vat_amount: (product.price || 0) * (vatRate / 100),
+        vat_amount: (product.price || 0) * (vatRate / (100 + vatRate)),
         image_url: product.image || null,
       };
       setItems([...items, newItem]);
@@ -455,46 +460,46 @@ export function QuotationBuilder({
               </div>
             )}
           </div>
-          {formData.delivery_collection === "Delivery" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label>Delivery Address Line 1 *</Label>
-                <Input
-                  value={formData.delivery_address_line1}
-                  onChange={(e) =>
-                    handleFieldChange("delivery_address_line1", e.target.value)
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Delivery Address Line 2</Label>
-                <Input
-                  value={formData.delivery_address_line2}
-                  onChange={(e) =>
-                    handleFieldChange("delivery_address_line2", e.target.value)
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Delivery City *</Label>
-                <Input
-                  value={formData.delivery_city}
-                  onChange={(e) =>
-                    handleFieldChange("delivery_city", e.target.value)
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Delivery Postcode *</Label>
-                <Input
-                  value={formData.delivery_postcode}
-                  onChange={(e) =>
-                    handleFieldChange("delivery_postcode", e.target.value)
-                  }
-                />
-              </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label>Delivery Address Line 1{formData.delivery_collection === "Delivery" ? " *" : ""}</Label>
+              <Input
+                value={formData.delivery_address_line1}
+                onChange={(e) =>
+                  handleFieldChange("delivery_address_line1", e.target.value)
+                }
+              />
             </div>
-          ) : null}
+            <div className="space-y-2">
+              <Label>Delivery Address Line 2</Label>
+              <Input
+                value={formData.delivery_address_line2}
+                onChange={(e) =>
+                  handleFieldChange("delivery_address_line2", e.target.value)
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Delivery City{formData.delivery_collection === "Delivery" ? " *" : ""}</Label>
+              <Input
+                value={formData.delivery_city}
+                onChange={(e) =>
+                  handleFieldChange("delivery_city", e.target.value)
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Delivery Postcode{formData.delivery_collection === "Delivery" ? " *" : ""}</Label>
+              <Input
+                value={formData.delivery_postcode}
+                onChange={(e) =>
+                  handleFieldChange("delivery_postcode", e.target.value)
+                }
+              />
+            </div>
+          </div>
+
         </div>
 
         {/* Line Items Panel */}
@@ -540,6 +545,7 @@ export function QuotationBuilder({
                     <th className="px-4 py-3 min-w-[200px]">Description</th>
                     <th className="px-4 py-3 w-24">Disc%</th>
                     <th className="px-4 py-3 w-24">Unit Price</th>
+                    <th className="px-4 py-3 w-24">VAT%</th>
                     <th className="px-4 py-3 text-right">Amount</th>
                     {/* <th className="px-4 py-3 text-right">VAT</th> */}
                     <th className="px-4 py-3 w-16"></th>
@@ -566,7 +572,7 @@ export function QuotationBuilder({
                               </button>
                             </div>
                           </td>
-                          <td colSpan={6} className="px-4 py-2">
+                          <td colSpan={7} className="px-4 py-2">
                             <Input
                               value={item.label}
                               onChange={(e) =>
@@ -710,6 +716,24 @@ export function QuotationBuilder({
                             }
                             className="w-24 text-right"
                           />
+                        </td>
+                        <td className="px-4 py-2">
+                          <Select
+                            value={String(item.vat_rate !== undefined ? item.vat_rate : vatRate)}
+                            onValueChange={(val) =>
+                              updateItem(item.id, {
+                                vat_rate: parseFloat(val) || 0,
+                              })
+                            }
+                          >
+                            <SelectTrigger className="w-[85px] h-9">
+                              <SelectValue placeholder={`${vatRate}%`} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={String(vatRate)}>{vatRate}%</SelectItem>
+                              <SelectItem value="0">0%</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </td>
                         <td className="px-4 py-2 text-right font-medium">
                           €{item.amount.toFixed(2)}

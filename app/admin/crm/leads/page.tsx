@@ -84,7 +84,7 @@ export default function LeadsListPage() {
   const [deleteId, setDeleteId]         = useState<string | null>(null)
   const [isDeleting, setIsDeleting]     = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [addForm, setAddForm]           = useState({ name: "", email: "", phone: "", message: "", source: "manual" })
+  const [addForm, setAddForm]           = useState({ name: "", email: "", phone: "", message: "", source: "manual", street: "", city: "", state: "", pincode: "" })
   const [isAdding, setIsAdding]         = useState(false)
 
   const followUpsDue = useMemo(() =>
@@ -187,11 +187,28 @@ export default function LeadsListPage() {
     }
     setIsAdding(true)
     try {
+      const addressParts = [
+        addForm.street?.trim(),
+        addForm.city?.trim(),
+        addForm.state?.trim(),
+        addForm.pincode?.trim()
+      ].filter(Boolean)
+      
+      const addressString = addressParts.length > 0 ? `Address: ${addressParts.join(", ")}` : ""
+      const finalMessage = [addressString, addForm.message?.trim()].filter(Boolean).join("\n\n")
+
       const res = await fetch("/api/admin/crm/leads", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...addForm, merge: mergeExisting }),
+        body: JSON.stringify({
+          name: addForm.name,
+          email: addForm.email,
+          phone: addForm.phone,
+          source: addForm.source,
+          message: finalMessage || null,
+          merge: mergeExisting,
+        }),
       })
       const data = await res.json()
       
@@ -217,7 +234,7 @@ export default function LeadsListPage() {
       }
       
       setShowAddModal(false)
-      setAddForm({ name: "", email: "", phone: "", message: "", source: "manual" })
+      setAddForm({ name: "", email: "", phone: "", message: "", source: "manual", street: "", city: "", state: "", pincode: "" })
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to create lead")
     } finally {
@@ -428,10 +445,28 @@ export default function LeadsListPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Message / Notes</Label>
-              <Textarea value={addForm.message} onChange={e => setAddForm(p => ({ ...p, message: e.target.value }))} rows={3} placeholder="What are they looking for?" />
-            </div>
+             <div className="space-y-1.5">
+               <Label>Street Address</Label>
+               <Input value={addForm.street} onChange={e => setAddForm(p => ({ ...p, street: e.target.value }))} placeholder="123 Main St" />
+             </div>
+             <div className="grid grid-cols-3 gap-2">
+               <div className="space-y-1.5 col-span-1">
+                 <Label>City</Label>
+                 <Input value={addForm.city} onChange={e => setAddForm(p => ({ ...p, city: e.target.value }))} placeholder="Dublin" />
+               </div>
+               <div className="space-y-1.5 col-span-1">
+                 <Label>State/County</Label>
+                 <Input value={addForm.state} onChange={e => setAddForm(p => ({ ...p, state: e.target.value }))} placeholder="Dublin" />
+               </div>
+               <div className="space-y-1.5 col-span-1">
+                 <Label>Postcode</Label>
+                 <Input value={addForm.pincode} onChange={e => setAddForm(p => ({ ...p, pincode: e.target.value }))} placeholder="D12 FP74" />
+               </div>
+             </div>
+             <div className="space-y-1.5">
+               <Label>Message / Notes</Label>
+               <Textarea value={addForm.message} onChange={e => setAddForm(p => ({ ...p, message: e.target.value }))} rows={2} placeholder="What are they looking for?" />
+             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddModal(false)} disabled={isAdding}>Cancel</Button>
