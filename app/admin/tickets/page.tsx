@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, Plus, Search, LayoutGrid, List as ListIcon, Calendar, MessageSquare, Clock, Users2, Download } from "lucide-react"
+import { Loader2, Plus, Search, LayoutGrid, List as ListIcon, Calendar, MessageSquare, Clock, Users2, Download, AlertCircle } from "lucide-react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import type { Ticket, TicketComment } from "@/lib/supabase-types"
@@ -18,7 +18,7 @@ import { format, parseISO } from "date-fns"
 
 const STATUSES = ["open", "assigned", "in_progress", "pending", "resolved", "closed"] as const
 const PRIORITIES = ["low", "medium", "high", "urgent"] as const
-const CATEGORIES = ["measurements", "quote", "installation"]
+const CATEGORIES = ["measurements", "quote", "installation", "delivery", "customer support", "other"]
 
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-blue-100 text-blue-800 border-blue-200",
@@ -213,8 +213,30 @@ function TicketsContent() {
     }
   }
 
+  const [sortByDueDate, setSortByDueDate] = useState<"none" | "asc" | "desc">("none")
+
+  // Overdue and Due Today ticket calculations
+  const { overdueCount, dueTodayCount } = useMemo(() => {
+    let overdue = 0
+    let dueToday = 0
+    const todayStr = new Date().toISOString().split("T")[0]
+    
+    tickets.forEach(t => {
+      if (t.due_date && !["resolved", "closed"].includes(t.status)) {
+        const ticketDateStr = t.due_date.split("T")[0]
+        if (ticketDateStr < todayStr) {
+          overdue++
+        } else if (ticketDateStr === todayStr) {
+          dueToday++
+        }
+      }
+    })
+    
+    return { overdueCount: overdue, dueTodayCount: dueToday }
+  }, [tickets])
+
   const filteredTickets = useMemo(() => {
-    return tickets.filter(t => {
+    const filtered = tickets.filter(t => {
       const matchSearch = t.title.toLowerCase().includes(search.toLowerCase()) || 
                           (t.assignee?.full_name?.toLowerCase() || "").includes(search.toLowerCase()) ||
                           (t.lead?.name?.toLowerCase() || "").includes(search.toLowerCase())
@@ -222,7 +244,22 @@ function TicketsContent() {
       const matchDate = !dueDateFilter || (t.due_date && t.due_date.startsWith(dueDateFilter))
       return matchSearch && matchStatus && matchDate
     })
-  }, [tickets, search, statusFilter, dueDateFilter])
+
+    if (sortByDueDate !== "none") {
+      filtered.sort((a, b) => {
+        if (!a.due_date && !b.due_date) return 0
+        if (!a.due_date) return 1 // Put nulls at the end
+        if (!b.due_date) return -1 // Put nulls at the end
+        
+        const dateA = new Date(a.due_date).getTime()
+        const dateB = new Date(b.due_date).getTime()
+        
+        return sortByDueDate === "asc" ? dateA - dateB : dateB - dateA
+      })
+    }
+
+    return filtered
+  }, [tickets, search, statusFilter, dueDateFilter, sortByDueDate])
 
   const handleDownloadPDF = () => {
     const doc = new jsPDF()
@@ -272,6 +309,25 @@ function TicketsContent() {
         </Button>
       </div>
 
+      {/* Overdue/Due Today alerts */}
+      {overdueCount > 0 && (
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-red-200 bg-red-50 text-red-700">
+          <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+          <p className="text-sm font-medium">
+            {overdueCount} ticket{overdueCount !== 1 ? "s" : ""} {overdueCount === 1 ? "is" : "are"} overdue!
+          </p>
+        </div>
+      )}
+
+      {dueTodayCount > 0 && (
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-amber-400/40 bg-amber-50 text-amber-700">
+          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+          <p className="text-sm font-medium">
+            {dueTodayCount} ticket{dueTodayCount !== 1 ? "s" : ""} {dueTodayCount === 1 ? "is" : "are"} due today.
+          </p>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 bg-card p-3 rounded-2xl neu-raised">
         <div className="relative flex-1 min-w-[200px]">
@@ -296,6 +352,16 @@ function TicketsContent() {
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             {STATUSES.map(s => <SelectItem key={s} value={s}>{s.replace("_", " ")}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={sortByDueDate} onValueChange={(v: any) => setSortByDueDate(v)}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Sort by Due Date" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Default Order</SelectItem>
+            <SelectItem value="asc">Due Date: Soonest First</SelectItem>
+            <SelectItem value="desc">Due Date: Latest First</SelectItem>
           </SelectContent>
         </Select>
         <Button variant="outline" onClick={handleDownloadPDF} className="h-10 border-border">

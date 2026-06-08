@@ -14,6 +14,7 @@ function normalizeItems(raw: Json) {
       quantity: Number(i.quantity ?? 0),
       unit_price: Number(i.unit_price ?? i.price ?? 0),
       subtotal: Number(i.subtotal ?? i.amount ?? Number(i.unit_price ?? 0) * Number(i.quantity ?? 0)),
+      vat_rate: Number(i.vat_rate ?? i.vatRate ?? 0),
     }))
     .filter((i) => i.quantity > 0)
 }
@@ -45,7 +46,7 @@ export async function GET(
 
     const { data: order, error } = await (supabase as any)
       .from("orders")
-      .select("id, order_number, customer_name, customer_email, payment_method, created_at, subtotal, tax, discount, shipping_fee, total, items, delivery_address")
+      .select("id, order_number, customer_name, customer_email, payment_method, created_at, subtotal, tax, discount, shipping_fee, total, items, delivery_address, paid_amount, source")
       .eq("id", id)
       .maybeSingle()
 
@@ -65,6 +66,10 @@ export async function GET(
       total: Number(order.total ?? 0),
       items: normalizeItems(order.items as Json),
       delivery_address: normalizeAddress(order.delivery_address as Json),
+      acc_ref: "",
+      sales_rep: "WEB",
+      paid_amount: Number(order.paid_amount ?? 0),
+      source: order.source || "cart",
     })
 
     return new NextResponse(pdfBuffer as any, {

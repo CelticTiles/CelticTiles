@@ -29,6 +29,8 @@ type ConfirmOrderRow = Pick<
   | "shipping_fee"
   | "invoice_file_id"
   | "email_sent"
+  | "paid_amount"
+  | "source"
 >
 
 type InvoiceItem = {
@@ -37,6 +39,7 @@ type InvoiceItem = {
   quantity: number
   unit_price: number
   subtotal: number
+  vat_rate?: number
 }
 
 function normalizeOrderItems(raw: Json): InvoiceItem[] {
@@ -56,6 +59,7 @@ function normalizeOrderItems(raw: Json): InvoiceItem[] {
         quantity: Number.isFinite(quantity) ? quantity : 0,
         unit_price: Number.isFinite(unitPrice) ? unitPrice : 0,
         subtotal: Number.isFinite(subtotal) ? subtotal : 0,
+        vat_rate: Number(source.vat_rate ?? source.vatRate ?? 0),
       }
     })
     .filter((item): item is InvoiceItem => Boolean(item && item.product_id && item.quantity > 0))
@@ -97,6 +101,10 @@ async function ensureInvoicePdf(order: ConfirmOrderRow, supabase: Awaited<Return
     total: Number(order.total ?? 0),
     items: normalizeOrderItems(order.items as Json),
     delivery_address: normalizeDeliveryAddress(order.delivery_address as Json),
+    acc_ref: "",
+    sales_rep: "WEB",
+    paid_amount: Number(order.paid_amount ?? 0),
+    source: order.source || "cart",
   })
 
   const uploadResult = await supabase.storage
@@ -150,7 +158,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabase()
     const { data: order, error: fetchError } = await supabase
       .from("orders")
-      .select("id, order_number, total, customer_name, customer_email, customer_phone, user_id, customer_id, payment_method, payment_status, created_at, items, delivery_address, subtotal, tax, discount, shipping_fee, invoice_file_id, email_sent")
+      .select("id, order_number, total, customer_name, customer_email, customer_phone, user_id, customer_id, payment_method, payment_status, created_at, items, delivery_address, subtotal, tax, discount, shipping_fee, invoice_file_id, email_sent, paid_amount, source")
       .eq("order_number", orderNumber)
       .eq("user_id", session.userId)
       .maybeSingle()
@@ -158,7 +166,7 @@ export async function POST(request: NextRequest) {
     if (fetchError || !order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
-    const typedOrder = order as ConfirmOrderRow
+    const typedOrder = order as any
 
     if (!typedOrder.customer_email) {
       return NextResponse.json({ error: "No customer email" }, { status: 400 })

@@ -39,7 +39,7 @@ interface QuotationsTableProps {
   initialQuotations: Quotation[];
 }
 
-type SortField = "date" | "total" | "customer";
+type SortField = "date" | "invoiced_date" | "changed_date" | "total" | "customer";
 type SortDirection = "asc" | "desc";
 type DateRangePreset = "all" | "weekly" | "monthly" | "yearly" | "custom";
 
@@ -135,6 +135,16 @@ export function QuotationsTable({ initialQuotations }: QuotationsTableProps) {
         case "date":
           aVal = new Date(a.quote_date || 0).getTime();
           bVal = new Date(b.quote_date || 0).getTime();
+          break;
+        case "invoiced_date":
+          // If a quote was converted to order, it might have an updated_at status change to accepted.
+          // Let's use updated_at if status is 'accepted' as a proxy for invoiced date, otherwise fallback to 0.
+          aVal = a.status === "accepted" ? new Date(a.updated_at || 0).getTime() : 0;
+          bVal = b.status === "accepted" ? new Date(b.updated_at || 0).getTime() : 0;
+          break;
+        case "changed_date":
+          aVal = new Date(a.updated_at || a.created_at || 0).getTime();
+          bVal = new Date(b.updated_at || b.created_at || 0).getTime();
           break;
         case "total":
           aVal = a.total; bVal = b.total;
@@ -290,6 +300,8 @@ export function QuotationsTable({ initialQuotations }: QuotationsTableProps) {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="date">Quote Date</SelectItem>
+                <SelectItem value="invoiced_date">Invoiced Date</SelectItem>
+                <SelectItem value="changed_date">Changed Date</SelectItem>
                 <SelectItem value="total">Total Amount</SelectItem>
                 <SelectItem value="customer">Customer Name</SelectItem>
               </SelectContent>

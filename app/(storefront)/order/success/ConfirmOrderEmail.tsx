@@ -34,6 +34,19 @@ export function ConfirmOrderEmail({ orderNumber }: ConfirmOrderEmailProps) {
         if (data.paymentVerified) {
           console.log('[ConfirmOrderEmail] ✅ Payment verified, intent:', data.paymentIntentId)
         }
+
+        // Auto download bill/invoice copy if return path is available
+        if (data.invoice?.path) {
+          // Trigger download directly from storage uploads bucket using a download helper or storage url
+          // Since it's a private storage bucket or public depending on config, we can fetch via client route or direct public URL.
+          // Let's create an anchor element and trigger a download of the path: `/api/orders/${orderNumber}/invoice`
+          const link = document.createElement('a')
+          link.href = `/api/orders/${orderNumber}/invoice`
+          link.setAttribute('download', `${orderNumber}.pdf`)
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        }
       })
       .catch((err) => {
         console.error('[ConfirmOrderEmail] API call failed:', err)

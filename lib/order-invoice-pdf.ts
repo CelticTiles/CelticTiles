@@ -121,8 +121,8 @@ function drawHeader(doc: jsPDF, logoDataUri: string | null, order: InvoiceOrderD
   ].filter(Boolean)
   doc.text(addrLines, MARGIN + 2, boxY + 12)
 
-  doc.text(order.customer_name || "", MARGIN + boxW + 8, boxY + 12)
-  doc.text(formatPaymentMethod(order.payment_method), MARGIN + boxW + 8, boxY + 19)
+  // Ship To box also displays the delivery/shipping address details
+  doc.text(addrLines, MARGIN + boxW + 8, boxY + 12)
 
   // Meta row — 8 columns matching invoice reference
   const metaY = boxY + boxH + 6
@@ -137,7 +137,7 @@ function drawHeader(doc: jsPDF, logoDataUri: string | null, order: InvoiceOrderD
     ? "Collection"
     : "Delivery"
   const values = [
-    order.order_number,
+    order.order_number ? order.order_number.replace(/^ORD-/, 'INV-') : "-",
     order.acc_ref || "-",
     format(new Date(order.created_at), "dd/MM/yyyy"),
     "",
@@ -156,87 +156,117 @@ function drawFooter(doc: jsPDF, order: InvoiceOrderData, pageNum: number, totalP
   const pw = doc.internal.pageSize.getWidth()
   const fTop = ph - FOOTER_H - 2
 
-  const bW1 = 70, bW2 = 42, bW3 = 60, gap = 5
-  const bH = 44
+  const isLastPage = pageNum === totalPages
 
-  doc.setDrawColor(0)
-  doc.setLineWidth(0.3)
+  if (isLastPage) {
+    const bW1 = 70, bW2 = 42, bW3 = 60, gap = 5
+    const bH = 44
 
-  // Box 1 — Banking Details
-  doc.rect(MARGIN, fTop, bW1, bH)
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(8)
-  doc.text("Banking Details:", MARGIN + 2, fTop + 5)
+    doc.setDrawColor(0)
+    doc.setLineWidth(0.3)
+
+    // Box 1 — Banking Details
+    doc.rect(MARGIN, fTop, bW1, bH)
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(8)
+    doc.text("Banking Details:", MARGIN + 2, fTop + 5)
+    doc.setFont("helvetica", "normal")
+    const bankLines = ["AIB", "Sort Code: 932515", "Account No: 97805024"]
+    if (order.acc_ref) bankLines.push(`Acc Ref: ${order.acc_ref}`)
+    doc.text(bankLines, MARGIN + 2, fTop + 10)
+
+    // Box 2 — Signature
+    doc.rect(MARGIN + bW1 + gap, fTop, bW2, bH)
+    doc.setFont("helvetica", "bold")
+    doc.text("Signature", MARGIN + bW1 + gap + 5, fTop + 5)
+
+    // Box 3 — Totals
+    const box3X = pw - MARGIN - bW3
+    doc.rect(box3X, fTop, bW3, bH)
+
+    let itemsTotal = 0
+    let itemsVat = 0
+    const oVatRate =
+      safeNumber(order.total) > 0 && safeNumber(order.tax) > 0
+        ? Math.round((safeNumber(order.tax) / Math.max(safeNumber(order.total) - safeNumber(order.tax), 1)) * 10000) / 100
+        : 0
+
+    order.items.forEach((item) => {
+      if ((item as any).type === "section_header") return
+      const qty = safeNumber(item.quantity)
+      const unitPrice = safeNumber(item.unit_price)
+      const amount = qty * unitPrice
+      const itemVatRate = item.vat_rate !== undefined ? safeNumber(item.vat_rate) : (oVatRate > 0 ? oVatRate : 23)
+      const vat = amount * (itemVatRate / (100 + itemVatRate))
+      itemsTotal += amount
+      itemsVat += vat
+    })
+
+    const total = itemsTotal + safeNumber(order.shipping_fee) - safeNumber(order.discount)
+    const vatAmount = itemsVat
+    const subtotal = itemsTotal - itemsVat
+
+    const lines: [string, string][] = []
+    lines.push(["Subtotal", `€ ${subtotal.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+    lines.push(["VAT Total", `€ ${vatAmount.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+    if (safeNumber(order.discount) > 0) {
+      lines.push(["Discount", `-€ ${safeNumber(order.discount).toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+    }
+    if (safeNumber(order.shipping_fee) > 0) {
+      lines.push(["Shipping", `€ ${safeNumber(order.shipping_fee).toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+    }
+    lines.push(["Total", `€ ${total.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+
+    let ly = fTop + 6
+    for (const [label, value] of lines) {
+      const isBold = ["Subtotal", "VAT Total", "Total"].includes(label)
+      doc.setFont("helvetica", isBold ? "bold" : "normal")
+      doc.setFontSize(isBold ? 11 : 9)
+      doc.text(label, box3X + 3, ly)
+      doc.text(value, pw - MARGIN - 3, ly, { align: "right" })
+      ly += 6.5
+    }
+
+    // Payment method section — divider line + method label + value
+    const divY = ly + 0.5
+    doc.setLineWidth(0.2)
+    doc.line(box3X + 1, divY, pw - MARGIN - 1, divY)
+    ly = divY + 5.5
+    
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(8)
+    doc.text("Payment", box3X + 3, ly)
+    doc.text("Method", box3X + 3, ly + 4.5)
+
+    const paymentText = formatPaymentMethod(order.payment_method).toUpperCase()
+    const paidAmount = safeNumber(order.paid_amount)
+    const totalAmt = safeNumber(order.total)
+    
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(8)
+    if (paidAmount > 0 && paidAmount < totalAmt) {
+      doc.text(`CF ${paidAmount.toFixed(2)}CF`, pw - MARGIN - 3, ly, { align: "right" })
+      doc.text(paymentText, pw - MARGIN - 3, ly + 4.5, { align: "right" })
+    } else {
+      doc.text(paymentText, pw - MARGIN - 3, ly + 2, { align: "right" })
+    }
+  }
+
+  // Payment method/time line below boxes
+  const pmY = fTop + 44 + 4
   doc.setFont("helvetica", "normal")
-  const bankLines = ["AIB", "Sort Code: 932515", "Account No: 97805024"]
-  if (order.acc_ref) bankLines.push(`Acc Ref: ${order.acc_ref}`)
-  doc.text(bankLines, MARGIN + 2, fTop + 10)
-
-  // Box 2 — Signature
-  doc.rect(MARGIN + bW1 + gap, fTop, bW2, bH)
-  doc.setFont("helvetica", "bold")
-  doc.text("Signature", MARGIN + bW1 + gap + 5, fTop + 5)
-
-  // Box 3 — Totals
-  const box3X = pw - MARGIN - bW3
-  doc.rect(box3X, fTop, bW3, bH)
-
-  // Use order-level subtotal (net) and tax directly — matches reference PDF layout
-  const subtotal = safeNumber(order.subtotal) || Math.max(0, safeNumber(order.total) - safeNumber(order.tax) - safeNumber(order.shipping_fee))
-  const vatAmount = safeNumber(order.tax)
-
-  const lines: [string, string][] = []
-  lines.push(["Subtotal", `€${subtotal.toFixed(2)}`])
-  if (vatAmount > 0) {
-    lines.push(["VAT Total", `€${vatAmount.toFixed(2)}`])
-  }
-  if (safeNumber(order.discount) > 0) {
-    lines.push(["Discount", `-€${safeNumber(order.discount).toFixed(2)}`])
-  }
-  if (safeNumber(order.shipping_fee) > 0) {
-    lines.push(["Shipping", `€${safeNumber(order.shipping_fee).toFixed(2)}`])
-  }
-  lines.push(["Total", `€${safeNumber(order.total).toFixed(2)}`])
-
-  doc.setFontSize(7.5)
-  let ly = fTop + 4.5
-  for (const [label, value] of lines) {
-    doc.setFont("helvetica", label === "Total" ? "bold" : "normal")
-    doc.text(label, box3X + 2, ly)
-    doc.text(value, pw - MARGIN - 2, ly, { align: "right" })
-    ly += 5.2
-  }
-
-  // Payment method section — divider line + method label + value
-  const divY = ly + 0.8
-  doc.setLineWidth(0.2)
-  doc.line(box3X + 1, divY, pw - MARGIN - 1, divY)
-  ly = divY + 4
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(7)
-  doc.text("Payment Method", box3X + 2, ly)
-  ly += 4.5
-  doc.setFont("helvetica", "normal")
-  const paidAmount = safeNumber(order.paid_amount)
-  const totalAmt = safeNumber(order.total)
-  if (paidAmount > 0 && paidAmount < totalAmt) {
-    doc.text(`CF €${paidAmount.toFixed(2)}`, box3X + 2, ly)
-    ly += 4
-    doc.text(`Bal: €${(totalAmt - paidAmount).toFixed(2)}`, box3X + 2, ly)
-    ly += 4
-  }
-  doc.text(formatPaymentMethod(order.payment_method), box3X + 2, ly)
-
-  // Payment method line below boxes
-  const pmY = fTop + bH + 3
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(7)
+  doc.setFontSize(9)
   doc.setTextColor(0, 0, 0)
+  
+  // Date under signature box
   doc.text(
     format(new Date(order.created_at), "dd/MM/yyyy HH:mm:ss"),
     pw / 2, pmY, { align: "center" }
   )
-  doc.text(`Page ${pageNum} of ${totalPages}`, pw / 2, pmY + 4, { align: "center" })
+
+  // Page 1 of 1 aligned right
+  doc.setFont("helvetica", "bold")
+  doc.text(`Page ${pageNum} of ${totalPages}`, pw - MARGIN, pmY, { align: "right" })
 
   // Red footer bar
   const barY = ph - 10
@@ -304,19 +334,11 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
     }
 
     const qty = safeNumber(item.quantity)
-    let itemVatRate = item.vat_rate !== undefined ? safeNumber(item.vat_rate) : vatRate
-    
-    let unitPrice = safeNumber(item.unit_price)
-    let amount = safeNumber(item.subtotal)
-    let vat = 0
+    let itemVatRate = item.vat_rate !== undefined ? safeNumber(item.vat_rate) : (vatRate > 0 ? vatRate : 23)
 
-    if (order.source === "quotation") {
-      unitPrice = unitPrice / (1 + itemVatRate / 100)
-      amount = amount / (1 + itemVatRate / 100)
-      vat = amount * (itemVatRate / 100)
-    } else {
-      vat = amount * (itemVatRate / 100)
-    }
+    const unitPrice = safeNumber(item.unit_price)
+    const amount = qty * unitPrice
+    const vat = amount * (itemVatRate / (100 + itemVatRate))
 
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     const code = uuidPattern.test(item.product_id ?? "") ? "-" : (item.product_id || "-")
@@ -324,9 +346,9 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
       qty.toFixed(2),
       code,
       item.product_name || "-",
-      `€${unitPrice.toFixed(2)}`,
-      `€${amount.toFixed(2)}`,
-      `€${vat.toFixed(2)}`,
+      `€ ${unitPrice.toFixed(2)}`,
+      `€ ${amount.toFixed(2)}`,
+      `€ ${vat.toFixed(2)}`,
     ]
   })
 
@@ -348,9 +370,14 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
       0: { cellWidth: 16 },
       1: { cellWidth: 20 },
       2: { cellWidth: 74 },
-      3: { cellWidth: 24, halign: "right" },
-      4: { cellWidth: 24, halign: "right" },
-      5: { cellWidth: 24, halign: "right" },
+      3: { cellWidth: 24, halign: "center" },
+      4: { cellWidth: 24, halign: "center" },
+      5: { cellWidth: 24, halign: "center" },
+    },
+    didParseCell: (data) => {
+      if (data.column.index === 3 || data.column.index === 4 || data.column.index === 5) {
+        data.cell.styles.halign = "center";
+      }
     },
     // Stop the table before the footer zone on every page
     // margin.top = header height so continuation pages start below redrawn header

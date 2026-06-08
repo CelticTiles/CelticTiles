@@ -122,9 +122,10 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
     }, [])
 
 
-    // Auto-select default (or first) saved address on mount — skip in quote mode
+    // Auto-select default (or first) saved address on mount — skip in quote mode or if admin/sales (walk-in order scenario)
     useEffect(() => {
-        if (isQuoteMode || addresses.length === 0) return
+        const isAdminOrSales = userRole === 'admin' || userRole === 'sales'
+        if (isQuoteMode || isAdminOrSales || addresses.length === 0) return
         const defaultAddress = addresses.find(a => a.is_default) ?? addresses[0]
         handleAddressSelection(defaultAddress.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps

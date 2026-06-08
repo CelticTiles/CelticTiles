@@ -18,7 +18,7 @@ export function PromotionalModal() {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
-    const alreadyDismissed = sessionStorage.getItem(SESSION_KEY)
+    const alreadyDismissed = localStorage.getItem(SESSION_KEY)
     if (!alreadyDismissed) {
       const timer = setTimeout(() => setIsVisible(true), 600)
       return () => clearTimeout(timer)
@@ -26,7 +26,7 @@ export function PromotionalModal() {
   }, [])
 
   const handleClose = () => {
-    sessionStorage.setItem(SESSION_KEY, "true")
+    localStorage.setItem(SESSION_KEY, "true")
     setIsVisible(false)
   }
 

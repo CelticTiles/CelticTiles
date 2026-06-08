@@ -268,13 +268,33 @@ export default function LeadDetailPage() {
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
                 <span>Received {format(new Date(lead.created_at), "dd MMM yyyy")}</span>
               </div>
+              
+              {/* Parse and Display Address if present in lead message */}
+              {(() => {
+                if (!lead.message) return null
+                // Typical format: "Address: 123 Street Name, Dublin, County Dublin, D01 X2Y3"
+                // Let's check if the message contains "Address:" prefix or look for it
+                const addressMatch = lead.message.match(/Address:\s*([^\n]+)/i)
+                if (addressMatch && addressMatch[1]) {
+                  return (
+                    <div className="pt-2 border-t">
+                      <p className="text-xs text-muted-foreground mb-1 font-semibold uppercase tracking-wider">Address</p>
+                      <p className="text-sm bg-muted/30 p-2 rounded whitespace-pre-wrap">{addressMatch[1].trim()}</p>
+                    </div>
+                  )
+                }
+                return null
+              })()}
+
               <div className="pt-2 border-t">
                 <span className="text-xs text-muted-foreground capitalize">Source: {lead.source}</span>
               </div>
               {lead.message && (
                 <div className="pt-2 border-t">
                   <p className="text-xs text-muted-foreground mb-1">Message</p>
-                  <p className="text-sm bg-muted/40 p-2 rounded">{lead.message}</p>
+                  <p className="text-sm bg-muted/40 p-2 rounded whitespace-pre-wrap">
+                    {lead.message.replace(/Address:\s*[^\n]+\n*/i, "").trim()}
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -288,10 +308,41 @@ export default function LeadDetailPage() {
                 asChild
                 className="w-full neu-raised border-transparent text-white"
               >
-                <Link href={`/admin/quotations/new?name=${encodeURIComponent(lead.name)}&email=${encodeURIComponent(lead.email || "")}&phone=${encodeURIComponent(lead.phone || "")}&lead_id=${lead.id}`}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Create Quote from Lead
-                </Link>
+                {(() => {
+                  let street = ""
+                  let city = ""
+                  let state = ""
+                  let postcode = ""
+                  if (lead.message) {
+                    const addressMatch = lead.message.match(/Address:\s*([^\n]+)/i)
+                    if (addressMatch && addressMatch[1]) {
+                      const parts = addressMatch[1].split(",").map(p => p.trim())
+                      // Parts order: Street, City, State/County, Postcode/Pincode
+                      street = parts[0] || ""
+                      city = parts[1] || ""
+                      state = parts[2] || ""
+                      postcode = parts[3] || ""
+                    }
+                  }
+                  
+                  const queryParams = new URLSearchParams({
+                    name: lead.name,
+                    email: lead.email || "",
+                    phone: lead.phone || "",
+                    lead_id: lead.id,
+                    street,
+                    city,
+                    state,
+                    postcode
+                  })
+
+                  return (
+                    <Link href={`/admin/quotations/new?${queryParams.toString()}`}>
+                      <FileText className="w-4 h-4 mr-2" />
+                      Create Quote from Lead
+                    </Link>
+                  )
+                })()}
               </Button>
               <Button
                 asChild

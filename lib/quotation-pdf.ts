@@ -77,7 +77,10 @@ export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
   doc.text("Sales Rep", 155, metaY);
 
   doc.setFont("helvetica", "normal");
-  doc.text(quote.quote_number || "", 14, metaY + 5);
+  const formattedQuoteNumber = quote.quote_number
+    ? (quote.quote_number.startsWith("QTE-") ? quote.quote_number : `QTE-${quote.quote_number}`)
+    : "";
+  doc.text(formattedQuoteNumber, 14, metaY + 5);
   const dt = quote.quote_date
     ? format(new Date(quote.quote_date), "dd/MM/yyyy")
     : "";

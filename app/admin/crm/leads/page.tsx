@@ -87,13 +87,37 @@ export default function LeadsListPage() {
   const [addForm, setAddForm]           = useState({ name: "", email: "", phone: "", message: "", source: "manual", street: "", city: "", state: "", pincode: "" })
   const [isAdding, setIsAdding]         = useState(false)
 
+  const [dueTicketsCount, setDueTicketsCount] = useState<number>(0)
+
   const followUpsDue = useMemo(() =>
     leads.filter(l => l.next_follow_up_date && l.status !== "Converted" &&
       new Date(l.next_follow_up_date) <= new Date()
     ).length
   , [leads])
 
-  useEffect(() => { fetchLeads() }, [])
+  useEffect(() => {
+    fetchLeads()
+    fetchDueTickets()
+  }, [])
+
+  const fetchDueTickets = async () => {
+    try {
+      const res = await fetch("/api/admin/tickets", { credentials: "include" })
+      const data = await res.json()
+      if (res.ok && data.tickets) {
+        const today = new Date().toISOString().split("T")[0]
+        const count = data.tickets.filter((t: any) => {
+          // Status not resolved or closed, and has a due date that is today or earlier
+          const isNotClosed = !["resolved", "closed"].includes(t.status)
+          const isOverdue = t.due_date && t.due_date.split("T")[0] <= today
+          return isNotClosed && isOverdue
+        }).length
+        setDueTicketsCount(count)
+      }
+    } catch (e) {
+      console.error("Failed to load due tickets count for CRM alert", e)
+    }
+  }
 
   const fetchLeads = async () => {
     try {
@@ -261,6 +285,16 @@ export default function LeadsListPage() {
           <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
           <p className="text-sm text-amber-700 font-medium">
             {followUpsDue} lead{followUpsDue !== 1 ? "s" : ""} with overdue follow-up
+          </p>
+        </div>
+      )}
+
+      {/* Due tickets alert */}
+      {dueTicketsCount > 0 && (
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-amber-400/40 bg-amber-50">
+          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-700 font-medium">
+            There {dueTicketsCount === 1 ? "is 1 ticket" : `are ${dueTicketsCount} tickets`} due/overdue
           </p>
         </div>
       )}
