@@ -778,19 +778,7 @@ export function QuotationBuilder({
                 <div className="flex justify-between text-sm">
                   <span className="font-bold text-gray-800">Subtotal</span>
                   <span>
-                    €
-                    {(() => {
-                      let total = 0;
-                      items.forEach((item) => {
-                        if (item.type === "product") {
-                          const baseAmount = item.unit_price * item.quantity;
-                          const discountAmount =
-                            baseAmount * (item.discount_percentage / 100);
-                          total += baseAmount - discountAmount;
-                        }
-                      });
-                      return total.toFixed(2);
-                    })()}
+                    €{(totals.total - totals.vat_total).toFixed(2)}
                   </span>
                 </div>
                 {formData.discount_enabled &&
@@ -804,8 +792,12 @@ export function QuotationBuilder({
                       </span>
                     </div>
                   )}
+                <div className="flex justify-between text-sm pt-2">
+                  <span>VAT ({vatRate}%)</span>
+                  <span className="font-medium">€{totals.vat_total.toFixed(2)}</span>
+                </div>
                 <p className="text-xs text-red-500 font-medium">
-                  * All prices include VAT ({vatRate}%)
+                  * All prices include VAT
                 </p>
                 <div className="flex justify-between font-bold text-lg pt-2 border-t text-gray-800">
                   <span>Total Amount</span>

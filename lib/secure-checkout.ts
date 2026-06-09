@@ -7,6 +7,7 @@ export interface SecureCheckoutItem {
   quantity: number
   unit_price: number
   subtotal: number
+  sku?: string
 }
 
 export interface SecureCheckoutSnapshot {
@@ -66,7 +67,7 @@ export async function buildSecureCheckoutSnapshot(
   console.log(`[secure-checkout] Fetching cart_items for ${userId}...`)
   const { data: cartRows, error: cartError } = await supabase
     .from("cart_items")
-    .select("product_id, product_name, product_price, quantity")
+    .select("product_id, product_name, product_price, quantity, products(assigned_code)")
     .eq("user_id", userId)
   console.log(`[secure-checkout] cart_items fetch complete. Error? ${!!cartError}`)
 
@@ -74,7 +75,7 @@ export async function buildSecureCheckoutSnapshot(
     throw new Error("Failed to load cart")
   }
 
-  const items: SecureCheckoutItem[] = ((cartRows ?? []) as CartItemRow[])
+  const items: SecureCheckoutItem[] = ((cartRows ?? []) as any[])
     .map((row) => {
       const quantity = Math.max(0, Math.floor(parseNumber(row.quantity)))
       const unitPrice = Math.max(0, round2(parseNumber(row.product_price)))
@@ -84,6 +85,7 @@ export async function buildSecureCheckoutSnapshot(
         quantity,
         unit_price: unitPrice,
         subtotal: round2(unitPrice * quantity),
+        sku: row.products?.assigned_code || undefined,
       }
     })
     .filter((item: SecureCheckoutItem) => item.product_id && item.quantity > 0)
@@ -103,7 +105,8 @@ export async function buildSecureCheckoutSnapshot(
   console.log(`[secure-checkout] site_settings fetch complete.`)
 
   const typedSettings = settings as SiteSettingsRow | null
-  const taxRate = Math.max(0, parseNumber(typedSettings?.tax_rate))
+  // Default to 23% Irish VAT rate if site_settings has no row or tax_rate is 0
+  const taxRate = Math.max(0, parseNumber(typedSettings?.tax_rate ?? 23)) || 23
   const freeShippingThreshold = Math.max(0, parseNumber(typedSettings?.free_shipping_threshold))
 
   let discount = 0
@@ -154,11 +157,12 @@ export async function buildSecureCheckoutSnapshot(
   }
 
   const discountedSubtotal = round2(Math.max(0, subtotal - discount))
-  const tax = round2(discountedSubtotal * (taxRate / 100))
+  // Extract VAT from the inclusive subtotal
+  const tax = round2(discountedSubtotal * (taxRate / (100 + taxRate)))
 
   // Delivery is quote-based currently; no flat shipping fee is charged.
   const shippingFee = 0
-  const total = round2(discountedSubtotal + tax + shippingFee)
+  const total = round2(discountedSubtotal + shippingFee)
 
   return {
     items,

@@ -18,7 +18,8 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
       .select(`
         *,
         assignee:profiles!tickets_assigned_to_fkey(full_name, email),
-        creator:profiles!tickets_created_by_fkey(full_name, email)
+        creator:profiles!tickets_created_by_fkey(full_name, email),
+        lead:leads(id, name, email)
       `)
       .eq("id", params.id)
       .single()
@@ -49,13 +50,15 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
 
     // Status logic: if assigned_to is newly set, and status is open, set to assigned
     let { status } = body
-    if (body.assigned_to && body.status === "open") {
+    if (body.assigned_to && body.assigned_to !== oldTicket?.assigned_to && oldTicket?.status === "open") {
       status = "assigned"
     }
 
     const updates = {
       ...body,
-      status: status || body.status
+    }
+    if (status) {
+      updates.status = status
     }
 
     const { data: ticket, error } = await supabase
@@ -65,7 +68,8 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
       .select(`
         *,
         assignee:profiles!tickets_assigned_to_fkey(full_name, email),
-        creator:profiles!tickets_created_by_fkey(full_name, email)
+        creator:profiles!tickets_created_by_fkey(full_name, email),
+        lead:leads(id, name, email)
       `)
       .single()
 
@@ -83,7 +87,7 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
 
     // Send email if reassigned or newly assigned to someone
     if (body.assigned_to && oldTicket && body.assigned_to !== oldTicket.assigned_to && ticket.assignee?.email) {
-      sendTicketAssignmentEmail({
+      await sendTicketAssignmentEmail({
         assigneeEmail: ticket.assignee.email,
         assigneeName: ticket.assignee.full_name || "Team Member",
         ticketTitle: ticket.title,

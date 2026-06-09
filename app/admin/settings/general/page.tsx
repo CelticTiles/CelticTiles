@@ -4,12 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Save } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { toast } from "sonner"
 import { IconSpinner } from "@/components/ui/icon-spinner"
 export default function GeneralSettingsPage() {
-  const supabase = getSupabaseBrowserClient()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const supabase = useMemo(() => getSupabaseBrowserClient(), [])
   const [loading, setLoading] = useState(false)
   const [isLoadingSettings, setIsLoadingSettings] = useState(true)
   
@@ -37,12 +38,30 @@ export default function GeneralSettingsPage() {
   const fetchSettings = async () => {
     setIsLoadingSettings(true)
     try {
-      const { data, error } = await (supabase as any)
+      // Add a 5-second timeout so the page never hangs forever
+      const timeout = new Promise<null>((resolve) =>
+        setTimeout(() => resolve(null), 5000)
+      )
+      const query = (supabase as any)
         .from('site_settings')
         .select('*')
         .single()
 
-      if (error && error.code !== 'PGRST116') throw error
+      const result = await Promise.race([query, timeout])
+
+      // timeout fired — just show defaults
+      if (result === null) {
+        console.warn('site_settings query timed out — using defaults')
+        return
+      }
+
+      const { data, error } = result as any
+
+      // PGRST116 = no rows found — not an error, just use defaults
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching settings:', error)
+        return
+      }
       
       if (data) {
         setStoreName(data.store_name || "Celtic Tiles")

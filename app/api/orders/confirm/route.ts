@@ -33,6 +33,8 @@ type ConfirmOrderRow = Pick<
   | "source"
 >
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 type InvoiceItem = {
   product_id: string
   product_name: string
@@ -40,30 +42,41 @@ type InvoiceItem = {
   unit_price: number
   subtotal: number
   vat_rate?: number
+  sku?: string
 }
 
-function normalizeOrderItems(raw: Json): InvoiceItem[] {
+function normalizeOrderItems(raw: Json, skuMap: Record<string, string> = {}): InvoiceItem[] {
   if (!Array.isArray(raw)) return []
 
-  return raw
+  return (raw
     .map((item) => {
       if (!item || typeof item !== "object" || Array.isArray(item)) return null
       const source = item as Record<string, unknown>
       const quantity = Number(source.quantity ?? 0)
       const unitPrice = Number(source.unit_price ?? source.price ?? 0)
       const subtotal = Number(source.subtotal ?? unitPrice * quantity)
+      const productId = String(source.product_id ?? "")
+
+      // Resolve vat_rate: only use a stored value if it's a positive number.
+      // Cart-based orders have no vat_rate on items, so we pass undefined to let
+      // the PDF generator apply its 23% Irish VAT fallback.
+      const rawVatRate = source.vat_rate ?? source.vatRate
+      const parsedVatRate =
+        rawVatRate !== undefined && rawVatRate !== null ? Number(rawVatRate) : undefined
 
       return {
-        product_id: String(source.product_id ?? ""),
+        product_id: productId,
         product_name: String(source.product_name ?? "Item"),
         quantity: Number.isFinite(quantity) ? quantity : 0,
         unit_price: Number.isFinite(unitPrice) ? unitPrice : 0,
         subtotal: Number.isFinite(subtotal) ? subtotal : 0,
-        vat_rate: Number(source.vat_rate ?? source.vatRate ?? 0),
-      }
+        vat_rate: parsedVatRate !== undefined && parsedVatRate > 0 ? parsedVatRate : undefined,
+        sku: String(source.sku ?? source.assigned_code ?? skuMap[productId] ?? "") || undefined,
+      } as InvoiceItem
     })
-    .filter((item): item is InvoiceItem => Boolean(item && item.product_id && item.quantity > 0))
+    .filter((item) => Boolean(item && item.product_id && item.quantity > 0))) as InvoiceItem[]
 }
+
 
 function normalizeDeliveryAddress(raw: Json) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null
@@ -79,16 +92,29 @@ function normalizeDeliveryAddress(raw: Json) {
 }
 
 async function ensureInvoicePdf(order: ConfirmOrderRow, supabase: Awaited<ReturnType<typeof createServerSupabase>>) {
-  const existingPath = typeof order.invoice_file_id === "string" ? order.invoice_file_id : ""
-  if (existingPath) {
-    const existing = await supabase.storage.from("uploads").download(existingPath)
-    if (!existing.error && existing.data) {
-      const bytes = await existing.data.arrayBuffer()
-      return { path: existingPath, buffer: Buffer.from(bytes) }
+  const invoicePath = `orders/${order.order_number}/${order.order_number}.pdf`
+
+  // Build sku map: look up assigned_code for all UUID product IDs in this order
+  const skuMap: Record<string, string> = {}
+  if (Array.isArray(order.items)) {
+    const uuidProductIds = (order.items as any[])
+      .map((i: any) => i?.product_id)
+      .filter((pid: string) => typeof pid === "string" && UUID_PATTERN.test(pid))
+
+    if (uuidProductIds.length > 0) {
+      const { data: products } = await (supabase as any)
+        .from("products")
+        .select("id, assigned_code")
+        .in("id", uuidProductIds)
+
+      if (products) {
+        for (const p of products as Array<{ id: string; assigned_code: string | null }>) {
+          if (p.assigned_code) skuMap[p.id] = p.assigned_code
+        }
+      }
     }
   }
 
-  const invoicePath = `orders/${order.order_number}/${order.order_number}.pdf`
   const pdfBuffer = await generateOrderInvoicePdfBuffer({
     order_number: order.order_number,
     created_at: order.created_at,
@@ -99,7 +125,7 @@ async function ensureInvoicePdf(order: ConfirmOrderRow, supabase: Awaited<Return
     discount: Number(order.discount ?? 0),
     shipping_fee: Number(order.shipping_fee ?? 0),
     total: Number(order.total ?? 0),
-    items: normalizeOrderItems(order.items as Json),
+    items: normalizeOrderItems(order.items as Json, skuMap),
     delivery_address: normalizeDeliveryAddress(order.delivery_address as Json),
     acc_ref: "",
     sales_rep: "WEB",

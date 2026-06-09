@@ -1,147 +1,277 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import type { Quotation } from "./supabase-types";
-import { format } from "date-fns";
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
+import type { Quotation } from "./supabase-types"
+import { format } from "date-fns"
+
+function safeNumber(value: unknown): number {
+  const num = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(num) ? num : 0
+}
 
 // Utility to load image to base64 on client
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   try {
-    const response = await fetch(url);
-    const blob = await response.blob();
+    const response = await fetch(url)
+    const blob = await response.blob()
     return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
   } catch {
-    return null;
+    return null
   }
 }
 
-export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
-  const doc = new jsPDF();
+// Fixed heights (matching invoice)
+const PAGE_H = 297
+const PAGE_W = 210
+const MARGIN = 14
+const FOOTER_H = 60
+const FOOTER_TOP = PAGE_H - FOOTER_H - 6
 
-  // Load logo — use absolute URL to avoid server-side fetch issues
-  const logoUrl = typeof window !== "undefined" ? `${window.location.origin}/images/celticlogo.png` : null
-  const logoBase64 = logoUrl ? await fetchImageAsBase64(logoUrl) : null
-
-  doc.setFont("helvetica");
-
-  // 1. Company Header
-  if (logoBase64) {
-    // Attempt to add logo. Adjust dimensions based on your specific logo aspect ratio.
-    doc.addImage(logoBase64, "PNG", 14, 12, 50, 20);
+function drawHeader(doc: jsPDF, logoDataUri: string | null, quote: Quotation) {
+  // Logo + company info
+  if (logoDataUri) {
+    doc.addImage(logoDataUri, "PNG", MARGIN, 10, 38, 16)
   } else {
-    // Fallback if logo fails to load
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("Celtic Tiles", 14, 20);
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(14)
+    doc.text("CELTIC TILES", MARGIN, 18)
   }
 
-  doc.setFontSize(26);
-  doc.setFont("helvetica", "bold");
-  doc.text("Quote", 195, 25, { align: "right" });
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  doc.text("Celtic Tiles Ltd", 54, 14)
+  doc.text("Unit D3 Finches industrial Park", 54, 18)
+  doc.text("Longmile Road Dublin12 D12FP74", 54, 22)
 
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text("Celtic Tiles Ltd", 70, 18);
-  doc.text("Unit D3 Finches industrial Park", 70, 23);
-  doc.text("Longmile Road", 70, 28);
-  doc.text("Dublin12 D12FP74", 70, 33);
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(22)
+  doc.text("Quotation", PAGE_W - MARGIN, 20, { align: "right" })
 
-  // 2. Quote To Box
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.5);
-  doc.rect(14, 45, 80, 40); // x, y, w, h
+  // Name/Address + Ship To boxes
+  const boxY = 32
+  const boxH = 34
+  const boxW = (PAGE_W - MARGIN * 2 - 6) / 2
 
-  doc.setFont("helvetica", "bold");
-  doc.text("Quote To", 16, 50);
-  doc.setLineWidth(0.2);
-  doc.line(14, 52, 94, 52); // underline
+  doc.setDrawColor(0)
+  doc.setLineWidth(0.3)
+  doc.rect(MARGIN, boxY, boxW, boxH)
+  doc.rect(MARGIN + boxW + 6, boxY, boxW, boxH)
 
-  doc.setFont("helvetica", "normal");
-  doc.text(doc.splitTextToSize(quote.customer_name || "", 75), 16, 58);
-  if (quote.quote_type) {
-    doc.text(quote.quote_type, 16, 80);
-  }
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(9)
+  doc.text("Quote To", MARGIN + 2, boxY + 5)
+  doc.text("Ship To", MARGIN + boxW + 8, boxY + 5)
 
-  // 3. Meta Row
-  const metaY = 95;
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text("QTE No.", 14, metaY);
-  doc.text("QTE Date", 45, metaY);
-  doc.text("Cust. Order No.", 75, metaY);
-  doc.text("Delivery/Collection", 115, metaY);
-  doc.text("Sales Rep", 155, metaY);
+  doc.setLineWidth(0.2)
+  doc.line(MARGIN, boxY + 7, MARGIN + boxW, boxY + 7)
+  doc.line(MARGIN + boxW + 6, boxY + 7, MARGIN + boxW * 2 + 6, boxY + 7)
 
-  doc.setFont("helvetica", "normal");
-  const formattedQuoteNumber = quote.quote_number
-    ? (quote.quote_number.startsWith("QTE-") ? quote.quote_number : `QTE-${quote.quote_number}`)
-    : "";
-  doc.text(formattedQuoteNumber, 14, metaY + 5);
-  const dt = quote.quote_date
-    ? format(new Date(quote.quote_date), "dd/MM/yyyy")
-    : "";
-  doc.text(dt, 45, metaY + 5);
-  doc.text(quote.customer_order_no || "", 75, metaY + 5);
-  doc.text(quote.delivery_collection || "", 115, metaY + 5);
-  doc.text(quote.sales_rep_name || "System Default Rep", 155, metaY + 5);
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  const custLines = [
+    quote.customer_name,
+    quote.customer_email || "",
+    quote.customer_phone || "",
+  ].filter(Boolean)
+  doc.text(custLines, MARGIN + 2, boxY + 12)
 
-  const deliveryAddressLines = [
-    quote.delivery_address_line1,
-    quote.delivery_address_line2,
+  // Ship To box
+  const addrLines = [
+    quote.customer_name,
+    quote.delivery_address_line1 || "",
+    quote.delivery_address_line2 || "",
     [quote.delivery_city, quote.delivery_postcode].filter(Boolean).join(" "),
-  ]
-    .filter(Boolean)
-    .map((line) => line?.toString() || "");
-
-  let tableStartY = 105;
-  if (
-    quote.delivery_collection === "Delivery" &&
-    deliveryAddressLines.length > 0
-  ) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Delivery Address:", 115, 105);
-    doc.setFont("helvetica", "normal");
-    const addressText = deliveryAddressLines.join("\n");
-    const addressLines = doc.splitTextToSize(addressText, 70);
-    doc.text(addressLines, 115, 110);
-    tableStartY = 110 + addressLines.length * 5;
+  ].filter(Boolean)
+  if (quote.delivery_collection === "Delivery") {
+    doc.text(addrLines, MARGIN + boxW + 8, boxY + 12)
+  } else {
+    doc.text("Collection", MARGIN + boxW + 8, boxY + 12)
   }
 
-  // 4. Products Table
-  const validItems: any[] = [];
+  // Meta row — 8 columns matching invoice reference
+  const metaY = boxY + boxH + 6
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(6.8)
+  const cols = [MARGIN, 36, 57, 80, 101, 127, 150, 176]
+  const labels = ["QTE No.", "Quote Type", "QTE Date", "Valid Until", "Cust. Order No.", "Sales Rep", "Delivery/Collection", ""]
+  labels.forEach((lbl, i) => doc.text(lbl, cols[i], metaY))
 
-  for (let i = 0; i < quote.items.length; i++) {
-    const item = quote.items[i];
-    if (item.type === "section_header") {
-      // Check if there are any products following this section header before the next section header
-      let hasProducts = false;
-      for (let j = i + 1; j < quote.items.length; j++) {
-        if (quote.items[j].type === "product") {
-          hasProducts = true;
-          break;
-        }
-        if (quote.items[j].type === "section_header") {
-          break;
-        }
-      }
-      if (hasProducts) {
-        validItems.push(item);
-      }
-    } else if (item.type === "product") {
-      validItems.push(item);
+  doc.setFont("helvetica", "normal")
+  const values = [
+    quote.quote_number ? (quote.quote_number.startsWith("QTE-") ? quote.quote_number : `QTE-${quote.quote_number}`) : "-",
+    quote.quote_type || "-",
+    quote.quote_date ? format(new Date(quote.quote_date), "dd/MM/yyyy") : "-",
+    quote.valid_until ? format(new Date(quote.valid_until), "dd/MM/yyyy") : "-",
+    quote.customer_order_no || "-",
+    quote.sales_rep_name || "System Default Rep",
+    quote.delivery_collection || "-",
+    "",
+  ]
+  values.forEach((val, i) => doc.text(val, cols[i], metaY + 5))
+
+  return metaY + 10
+}
+
+function drawFooter(doc: jsPDF, quote: Quotation, pageNum: number, totalPages: number) {
+  const ph = doc.internal.pageSize.getHeight()
+  const pw = doc.internal.pageSize.getWidth()
+  const fTop = ph - FOOTER_H - 2
+
+  const isLastPage = pageNum === totalPages
+
+  if (isLastPage) {
+    const bW1 = 70, bW2 = 42, bW3 = 60, gap = 5
+    const bH = 44
+
+    doc.setDrawColor(0)
+    doc.setLineWidth(0.3)
+
+    // Box 1 — Instructions & Notes
+    doc.rect(MARGIN, fTop, bW1, bH)
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(8)
+    doc.text("Instruction / Notes:", MARGIN + 2, fTop + 5)
+    doc.setFont("helvetica", "normal")
+    const notesLines = [
+      quote.instructions || "",
+      "Prices are subject to change due to supplier cost increases and are valid for 30 days."
+    ].filter(Boolean)
+    doc.text(doc.splitTextToSize(notesLines.join("\\n\\n"), bW1 - 4), MARGIN + 2, fTop + 10)
+
+    // Box 2 — Signature
+    doc.rect(MARGIN + bW1 + gap, fTop, bW2, bH)
+    doc.setFont("helvetica", "bold")
+    doc.text("Signature", MARGIN + bW1 + gap + 5, fTop + 5)
+
+    // Box 3 — Totals
+    const box3X = pw - MARGIN - bW3
+    doc.rect(box3X, fTop, bW3, bH)
+
+    let itemsTotal = 0
+    let itemsVat = 0
+    const sampleVatRate =
+      quote.items.find(
+        (item): item is import("./supabase-types").QuotationProductItem =>
+          item.type === "product" &&
+          typeof (item as any).vat_rate === "number" &&
+          (item as any).vat_rate > 0,
+      )?.vat_rate || 23
+
+    quote.items.forEach((item) => {
+      if (item.type === "section_header") return
+      const qty = safeNumber(item.quantity)
+      const unitPrice = safeNumber(item.unit_price)
+      const amount = qty * unitPrice
+      const itemVatRate = item.vat_rate !== undefined ? safeNumber(item.vat_rate) : sampleVatRate
+      const vat = amount * (itemVatRate / (100 + itemVatRate))
+      itemsTotal += amount
+      itemsVat += vat
+    })
+
+    const vatAmount = itemsVat
+    const subtotal = itemsTotal - itemsVat
+    const baseAmountBeforeDiscount = subtotal + vatAmount
+
+    let quoteDiscount = 0
+    if (quote.discount_enabled && quote.discount_percentage) {
+      quoteDiscount = itemsTotal * (quote.discount_percentage / 100)
+    }
+
+    const lines: [string, string][] = []
+    lines.push(["Subtotal", `€ ${subtotal.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+    lines.push(["VAT Total", `€ ${vatAmount.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+    if (quoteDiscount > 0) {
+      lines.push(["Quote Discount", `-€ ${quoteDiscount.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+    }
+    lines.push(["Total", `€ ${safeNumber(quote.total).toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+
+    let ly = fTop + 6
+    for (const [label, value] of lines) {
+      const isBold = ["Subtotal", "VAT Total", "Total"].includes(label)
+      doc.setFont("helvetica", isBold ? "bold" : "normal")
+      doc.setFontSize(isBold ? 11 : 9)
+      doc.text(label, box3X + 3, ly)
+      doc.text(value, pw - MARGIN - 3, ly, { align: "right" })
+      ly += 6.5
     }
   }
 
-  const tableData = validItems.map((item) => {
+  // Time line below boxes
+  const pmY = fTop + 44 + 4
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(9)
+  doc.setTextColor(0, 0, 0)
+  
+  doc.text(
+    format(new Date(quote.created_at), "dd/MM/yyyy HH:mm:ss"),
+    pw / 2, pmY, { align: "center" }
+  )
+
+  doc.setFont("helvetica", "bold")
+  doc.text(`Page ${pageNum} of ${totalPages}`, pw - MARGIN, pmY, { align: "right" })
+
+  // Red footer bar
+  const barY = ph - 10
+  doc.setFillColor(136, 17, 33)
+  doc.rect(MARGIN, barY, pw - MARGIN * 2, 8, "F")
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(6.5)
+  doc.text(
+    "Phone:+35314090558  Cell:+353870007777  Email:info@celtictiles.ie  Website:https://www.celtictiles.ie",
+    MARGIN + 2, barY + 3.5
+  )
+  doc.text("VAT Reg. No.:4047335JH  Company Reg No.:725840", MARGIN + 2, barY + 6.5)
+  doc.setTextColor(0, 0, 0)
+}
+
+export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
+  const doc = new jsPDF({ unit: "mm", format: "a4" })
+  const logoUrl = typeof window !== "undefined" ? `${window.location.origin}/images/celticlogo.png` : null
+  const logoDataUri = logoUrl ? await fetchImageAsBase64(logoUrl) : null
+
+  doc.setFont("helvetica", "normal")
+
+  const tableStartY = drawHeader(doc, logoDataUri, quote)
+
+  const sampleVatRate =
+    quote.items.find(
+      (item): item is import("./supabase-types").QuotationProductItem =>
+        item.type === "product" &&
+        typeof (item as any).vat_rate === "number" &&
+        (item as any).vat_rate > 0,
+    )?.vat_rate || 23
+
+  const validItems: any[] = []
+  for (let i = 0; i < quote.items.length; i++) {
+    const item = quote.items[i]
+    if (item.type === "section_header") {
+      let hasProducts = false
+      for (let j = i + 1; j < quote.items.length; j++) {
+        if (quote.items[j].type === "product") {
+          hasProducts = true
+          break
+        }
+        if (quote.items[j].type === "section_header") {
+          break
+        }
+      }
+      if (hasProducts) {
+        validItems.push(item)
+      }
+    } else {
+      validItems.push(item)
+    }
+  }
+
+  const rows = validItems.map((item) => {
     if (item.type === "section_header") {
       return [
         {
-          content: item.label,
+          content: item.label || "",
           colSpan: 6,
           styles: {
             fontStyle: "bold" as const,
@@ -149,186 +279,72 @@ export async function generateQuotationPDF(quote: Quotation): Promise<Blob> {
             textColor: [0, 0, 0] as [number, number, number],
           },
         },
-      ];
-    } else {
-      return [
-        item.quantity.toFixed(2),
-        item.code,
-        item.description,
-        item.discount_percentage ? item.discount_percentage.toString() : "0",
-        `€${item.unit_price.toFixed(2)}`,
-        `€${item.amount.toFixed(2)}`,
-      ];
+      ]
     }
-  });
+
+    const qty = safeNumber(item.quantity)
+    let itemVatRate = item.vat_rate !== undefined ? safeNumber(item.vat_rate) : sampleVatRate
+
+    const unitPrice = safeNumber(item.unit_price)
+    const amount = qty * unitPrice
+    const vat = amount * (itemVatRate / (100 + itemVatRate))
+
+    return [
+      qty.toFixed(2),
+      item.code || "-",
+      item.description || "-",
+      `€ ${unitPrice.toFixed(2)}`,
+      `€ ${amount.toFixed(2)}`,
+      `€ ${vat.toFixed(2)}`,
+    ]
+  })
 
   autoTable(doc, {
     startY: tableStartY,
-    head: [
-      [
-        "Total\nQty",
-        "Code",
-        "Description",
-        "Discount %",
-        "Unit\nPrice",
-        "Amount",
-      ],
-    ], // 'VAT'
-    body: tableData as any,
+    head: [["Total Qty", "Code", "Description", "Unit Price", "Amount", "VAT"]],
+    body: rows as any,
     theme: "plain",
+    styles: { fontSize: 8, cellPadding: 1.2, overflow: "linebreak" },
     headStyles: {
-      fillColor: [255, 255, 255] as [number, number, number],
-      fontStyle: "bold" as const,
-      textColor: [0, 0, 0] as [number, number, number],
-      lineColor: [0, 0, 0] as [number, number, number],
-      lineWidth: { top: 1, bottom: 1, left: 0, right: 0 } as any,
+      textColor: [0, 0, 0],
+      fillColor: [255, 255, 255],
+      fontStyle: "bold",
+      lineColor: [0, 0, 0],
+      lineWidth: { top: 0.4, bottom: 0.4, left: 0, right: 0 },
     },
-    bodyStyles: {
-      textColor: [0, 0, 0] as [number, number, number],
-      lineWidth: 0,
-    },
-    styles: { fontSize: 8, cellPadding: 1.2 },
-    margin: { top: 20, bottom: 30 },
     columnStyles: {
-      0: { cellWidth: 15 },
-      1: { cellWidth: 25 },
-      2: { cellWidth: 82 },
-      3: { cellWidth: 18, halign: "right" },
-      4: { cellWidth: 20, halign: "right" },
-      5: { cellWidth: 22, halign: "right" },
+      0: { cellWidth: 16 },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 74 },
+      3: { cellWidth: 24, halign: "center" },
+      4: { cellWidth: 24, halign: "center" },
+      5: { cellWidth: 24, halign: "center" },
     },
-    didDrawPage: (data) => {
-      // If we've added a new page, the header isn't there. 
-      // But for Quotation, the current design draws header once at the start.
-      // To be safe, we ensure any continuation pages start below the header height
-      if (data.pageNumber > 1) {
-        // You could call a drawHeader function here if you refactor it
+    didParseCell: (data) => {
+      if (data.column.index === 3 || data.column.index === 4 || data.column.index === 5) {
+        data.cell.styles.halign = "center"
       }
-    }
-  });
+    },
+    margin: { top: tableStartY, bottom: 22, left: MARGIN, right: MARGIN },
+    didDrawPage: (data) => {
+      if (data.pageNumber > 1) {
+        const newStartY = drawHeader(doc, logoDataUri, quote)
+        ;(data.cursor as any).y = newStartY
+      }
+    },
+  })
 
-  let finalY = (doc as any).lastAutoTable.finalY + 10;
-
-  // If the totals/notes section won't fit on the current page, add a new page
-  // The red footer starts at 277, so we need totals (height 52) to end before 275.
-  if (finalY + 55 > 270) {
-    doc.addPage();
-    finalY = 20;
+  const finalY = (doc as any).lastAutoTable.finalY || 0
+  const fTop = PAGE_H - FOOTER_H - 2
+  if (finalY > fTop) {
+    doc.addPage()
   }
 
-
-  // 5. Totals & Instructions Area
-  // Left Box: Instructions + Notes
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.5);
-  doc.rect(14, finalY, 110, 30); // Instructions box
-  doc.rect(14, finalY + 32, 110, 20); // Notes box
-
-  doc.setFont("helvetica", "bold");
-  doc.text("Instruction:", 16, finalY + 5);
-  doc.setFont("helvetica", "normal");
-  doc.text(doc.splitTextToSize(quote.instructions || "", 105), 16, finalY + 10);
-
-  doc.setFont("helvetica", "bold");
-  doc.text("Please Note:", 16, finalY + 37);
-  doc.setFont("helvetica", "normal");
-  const defaultNotes =
-    "Prices are subject to change due to supplier cost increases and are valid for 30 days from the quotation date.";
-  doc.text(doc.splitTextToSize(defaultNotes, 85), 38, finalY + 37);
-
-  // Right Box: Totals
-  doc.rect(126, finalY, 70, 52);
-
-  // Get base amount before quote-level discount
-  let baseAmount = 0;
-  for (const item of quote.items) {
-    if (item.type === "product") {
-      const itemBase = item.unit_price * item.quantity;
-      const itemDiscount = itemBase * (item.discount_percentage / 100);
-      baseAmount += itemBase - itemDiscount;
-    }
+  const totalPages = (doc as any).internal.getNumberOfPages()
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p)
+    drawFooter(doc, quote, p, totalPages)
   }
 
-  // Calculate quote-level discount
-  let quoteDiscount = 0;
-  if (quote.discount_enabled && quote.discount_percentage) {
-    quoteDiscount = baseAmount * (quote.discount_percentage / 100);
-  }
-
-  let currentY = finalY + 8;
-
-  // Show base amount if there's a discount
-  if (quoteDiscount > 0) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text("Base Amount", 130, currentY);
-    doc.text(`€${baseAmount.toFixed(2)}`, 190, currentY, { align: "right" });
-    currentY += 7;
-
-    // Show quote discount
-    doc.text(`Quote Discount (${quote.discount_percentage}%)`, 130, currentY);
-    doc.text(`- €${quoteDiscount.toFixed(2)}`, 190, currentY, {
-      align: "right",
-    });
-    currentY += 7;
-  }
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("Total Amount", 130, currentY);
-  doc.text(`€${quote.total.toFixed(2)}`, 190, currentY, { align: "right" });
-
-  // Derive vat rate from what was saved inside an item for display
-  const sampleVatRate =
-    quote.items.find(
-      (item): item is import("./supabase-types").QuotationProductItem =>
-        item.type === "product" &&
-        typeof (item as any).vat_rate === "number" &&
-        (item as any).vat_rate > 0,
-    )?.vat_rate || 0;
-
-  doc.setFont("helvetica", "normal");
-  currentY += 7;
-  doc.text(`VAT Amount (${sampleVatRate}%)`, 130, currentY);
-  doc.text(`- €${quote.vat_total.toFixed(2)}`, 190, currentY, {
-    align: "right",
-  });
-
-  doc.setFontSize(8);
-  doc.text("(Included in Total)", 130, currentY + 4);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  currentY += 10;
-  doc.text("Subtotal", 130, currentY);
-  doc.text(`€${quote.subtotal.toFixed(2)}`, 190, currentY, {
-    align: "right",
-  });
-
-  doc.setFontSize(10);
-  doc.line(126, currentY + 5, 196, currentY + 5); // separator
-  doc.text("Signature:", 130, currentY + 11);
-
-  // 6. Footer (Page level)
-  const pageCount = (doc as any).internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(`Page ${i} of ${pageCount}`, 105, 275, { align: "center" });
-
-    // Red footer bar
-    doc.setFillColor(136, 17, 33); // dark red matching the reference
-    doc.rect(14, 277, 182, 10, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.text(
-      "Phone:+35314090558 Cell:+353870007777 Email:info@celtictiles.ie Website:https://www.celtictiles.ie",
-      16,
-      281,
-    );
-    doc.text("VAT Reg. No.:4047335JH Company Reg No.:725840", 16, 285);
-    doc.setTextColor(0, 0, 0); // reset
-  }
-
-  return doc.output("blob");
+  return doc.output("blob")
 }

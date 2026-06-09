@@ -4,18 +4,27 @@ import { getServerSession } from "@/lib/loaders"
 import { generateOrderInvoicePdfBuffer } from "@/lib/order-invoice-pdf"
 import type { Json } from "@/supabase/database.types"
 
-function normalizeItems(raw: Json) {
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function normalizeItems(raw: Json, skuMap: Record<string, string>) {
   if (!Array.isArray(raw)) return []
   return (raw as any[])
     .filter((i): i is any => !!i && typeof i === "object" && !Array.isArray(i))
-    .map((i) => ({
-      product_id: String(i.product_id ?? i.sku ?? ""),
-      product_name: String(i.product_name ?? i.name ?? i.description ?? "Item"),
-      quantity: Number(i.quantity ?? 0),
-      unit_price: Number(i.unit_price ?? i.price ?? 0),
-      subtotal: Number(i.subtotal ?? i.amount ?? Number(i.unit_price ?? 0) * Number(i.quantity ?? 0)),
-      vat_rate: Number(i.vat_rate ?? i.vatRate ?? 0),
-    }))
+    .map((i) => {
+      const rawVatRate = i.vat_rate ?? i.vatRate
+      const parsedVatRate = rawVatRate !== undefined && rawVatRate !== null ? Number(rawVatRate) : undefined
+      return {
+        product_id: String(i.product_id ?? i.sku ?? ""),
+        product_name: String(i.product_name ?? i.name ?? i.description ?? "Item"),
+        quantity: Number(i.quantity ?? 0),
+        unit_price: Number(i.unit_price ?? i.price ?? 0),
+        subtotal: Number(i.subtotal ?? i.amount ?? Number(i.unit_price ?? 0) * Number(i.quantity ?? 0)),
+        // Use undefined (not 0) when vat_rate is absent — lets the PDF generator apply its 23% fallback
+        vat_rate: (parsedVatRate !== undefined && parsedVatRate > 0) ? parsedVatRate : undefined,
+        // Resolve SKU: prefer stored sku field, then look up from products table via UUID
+        sku: i.sku || i.assigned_code || skuMap[String(i.product_id ?? "")] || undefined,
+      }
+    })
     .filter((i) => i.quantity > 0)
 }
 
@@ -37,21 +46,55 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession()
-    if (!session.userId || (session.userRole !== "admin" && session.userRole !== "sales")) {
+    if (!session.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const isAdminOrSales = session.userRole === "admin" || session.userRole === "sales"
     const { id } = await props.params
     const supabase = await createServerSupabase()
 
-    const { data: order, error } = await (supabase as any)
+    // Support both UUID (admin dashboard) and order_number (customer checkout auto-download)
+    const isUUID = UUID_PATTERN.test(id)
+    const orderQuery = (supabase as any)
       .from("orders")
-      .select("id, order_number, customer_name, customer_email, payment_method, created_at, subtotal, tax, discount, shipping_fee, total, items, delivery_address, paid_amount, source")
-      .eq("id", id)
-      .maybeSingle()
+      .select("id, order_number, customer_name, customer_email, payment_method, created_at, subtotal, tax, discount, shipping_fee, total, items, delivery_address, paid_amount, source, user_id")
+
+    const { data: order, error } = await (isUUID
+      ? orderQuery.eq("id", id)
+      : orderQuery.eq("order_number", id)
+    ).maybeSingle()
 
     if (error || !order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
+
+    // A customer can only download their own invoice; admin/sales can download any
+    if (!isAdminOrSales && order.user_id !== session.userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    // Build a map of product_id -> assigned_code for all UUID product IDs in this order
+    const skuMap: Record<string, string> = {}
+    if (Array.isArray(order.items)) {
+      const uuidProductIds = (order.items as any[])
+        .map((i: any) => i?.product_id)
+        .filter((pid: string) => typeof pid === "string" && UUID_PATTERN.test(pid))
+
+      if (uuidProductIds.length > 0) {
+        const { data: products } = await (supabase as any)
+          .from("products")
+          .select("id, assigned_code")
+          .in("id", uuidProductIds)
+
+        if (products) {
+          for (const p of products) {
+            if (p.assigned_code) {
+              skuMap[p.id] = p.assigned_code
+            }
+          }
+        }
+      }
     }
 
     const pdfBuffer = await generateOrderInvoicePdfBuffer({
@@ -64,7 +107,7 @@ export async function GET(
       discount: Number(order.discount ?? 0),
       shipping_fee: Number(order.shipping_fee ?? 0),
       total: Number(order.total ?? 0),
-      items: normalizeItems(order.items as Json),
+      items: normalizeItems(order.items as Json, skuMap),
       delivery_address: normalizeAddress(order.delivery_address as Json),
       acc_ref: "",
       sales_rep: "WEB",

@@ -85,6 +85,21 @@ function exportToExcel(orders: OrderListItem[], rangeLabel: string) {
   })
 }
 
+function getSixDigitInvoiceNumber(orderNumber: string | null | undefined): string {
+  if (!orderNumber) return "-"
+  const mockMatch = orderNumber.match(/^ORD-(\d+)$/)
+  if (mockMatch) {
+    return `INV-${mockMatch[1].padStart(6, "0")}`
+  }
+  let hash = 0
+  for (let i = 0; i < orderNumber.length; i++) {
+    hash = (hash << 5) - hash + orderNumber.charCodeAt(i)
+    hash |= 0
+  }
+  const code = Math.abs(hash) % 900000 + 100000
+  return `INV-${code}`
+}
+
 export default function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
   const [ordersState, setOrdersState] = useState<OrderListItem[]>(orders)
   const [searchTerm, setSearchTerm]     = useState("")
@@ -126,10 +141,12 @@ export default function OrdersListClient({ orders }: { orders: OrderListItem[] }
     }
 
     return ordersState.filter((order) => {
+      const shortInv = getSixDigitInvoiceNumber(order.orderNumber)
       const matchesSearch =
         order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customerEmail.toLowerCase().includes(searchTerm.toLowerCase())
+        order.customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        shortInv.toLowerCase().includes(searchTerm.toLowerCase())
 
       const matchesStatus = statusFilter === "all" || order.status === statusFilter
 

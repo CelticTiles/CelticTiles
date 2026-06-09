@@ -13,6 +13,7 @@ interface InvoiceItem {
   vat_rate?: number
   type?: string
   label?: string
+  sku?: string
 }
 
 interface InvoiceAddress {
@@ -54,6 +55,21 @@ async function loadLogoDataUri(): Promise<string | null> {
 function safeNumber(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value)
   return Number.isFinite(num) ? num : 0
+}
+
+export function getSixDigitInvoiceNumber(orderNumber: string | null | undefined): string {
+  if (!orderNumber) return "-"
+  const mockMatch = orderNumber.match(/^ORD-(\d+)$/)
+  if (mockMatch) {
+    return `INV-${mockMatch[1].padStart(6, "0")}`
+  }
+  let hash = 0
+  for (let i = 0; i < orderNumber.length; i++) {
+    hash = (hash << 5) - hash + orderNumber.charCodeAt(i)
+    hash |= 0
+  }
+  const code = Math.abs(hash) % 900000 + 100000
+  return `INV-${code}`
 }
 
 function formatPaymentMethod(method: string | null): string {
@@ -137,7 +153,7 @@ function drawHeader(doc: jsPDF, logoDataUri: string | null, order: InvoiceOrderD
     ? "Collection"
     : "Delivery"
   const values = [
-    order.order_number ? order.order_number.replace(/^ORD-/, 'INV-') : "-",
+    getSixDigitInvoiceNumber(order.order_number),
     order.acc_ref || "-",
     format(new Date(order.created_at), "dd/MM/yyyy"),
     "",
@@ -341,7 +357,7 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
     const vat = amount * (itemVatRate / (100 + itemVatRate))
 
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    const code = uuidPattern.test(item.product_id ?? "") ? "-" : (item.product_id || "-")
+    const code = item.sku || (uuidPattern.test(item.product_id ?? "") ? "-" : (item.product_id || "-"))
     return [
       qty.toFixed(2),
       code,
@@ -379,9 +395,9 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
         data.cell.styles.halign = "center";
       }
     },
-    // Stop the table before the footer zone on every page
+    // Stop the table before the footer zone on every page (using a smaller bottom margin of 22 to fill preceding pages)
     // margin.top = header height so continuation pages start below redrawn header
-    margin: { top: tableStartY, bottom: FOOTER_H + 15, left: MARGIN, right: MARGIN },
+    margin: { top: tableStartY, bottom: 22, left: MARGIN, right: MARGIN },
     didDrawPage: (data) => {
       if (data.pageNumber > 1) {
         const newStartY = drawHeader(doc, logoDataUri, order)
@@ -390,6 +406,13 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
       }
     },
   })
+
+  // If the last table page ends below the footer start height, add a page for the footer.
+  const finalY = (doc as any).lastAutoTable.finalY || 0
+  const fTop = PAGE_H - FOOTER_H - 2
+  if (finalY > fTop) {
+    doc.addPage()
+  }
 
   // Count total pages and draw footer on every page
   const totalPages = (doc as any).internal.getNumberOfPages()

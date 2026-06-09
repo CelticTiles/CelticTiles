@@ -100,7 +100,7 @@ const getCachedSiteSettingsData = unstable_cache(
 
     const dbThreshold = Number(data?.free_shipping_threshold ?? 1000)
     return {
-      tax_rate: Number(data?.tax_rate ?? 0),
+      tax_rate: Number(data?.tax_rate ?? 23),  // 23% Irish VAT as default
       free_shipping_threshold: Math.max(dbThreshold, 1000),
       shipping_fee: 10,
     } as SiteSettingsData
@@ -277,7 +277,8 @@ export async function getSiteSettings(): Promise<SiteSettingsData> {
   try {
     return await getCachedSiteSettingsData()
   } catch {
-    return { tax_rate: 0, free_shipping_threshold: 1000, shipping_fee: 10 }
+    // Fallback to Irish standard VAT rate if DB is unavailable
+    return { tax_rate: 23, free_shipping_threshold: 1000, shipping_fee: 10 }
   }
 }
 

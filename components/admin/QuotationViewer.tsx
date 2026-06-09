@@ -204,7 +204,7 @@ export function QuotationViewer({ quotation }: QuotationViewerProps) {
             <div className="flex justify-between text-sm">
               <span>Subtotal</span>
               <span className="font-semibold">
-                €{quotation.subtotal.toFixed(2)}
+                €{(quotation.total - quotation.vat_total).toFixed(2)}
               </span>
             </div>
 

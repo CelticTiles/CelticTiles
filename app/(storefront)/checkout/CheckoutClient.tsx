@@ -99,18 +99,18 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
 
     const cartSubtotal = getCartTotal()
     const subtotal = isQuoteMode && quoteData ? quoteData.total : cartSubtotal
-    const taxRate = (siteSettings.tax_rate ?? 0) / 100
-
+    const taxRate = (siteSettings.tax_rate ?? 0)
+    
     const couponDiscount = !isQuoteMode && appliedCoupon
         ? appliedCoupon.discount_type === 'percentage'
             ? subtotal * (appliedCoupon.discount_value / 100)
             : Math.min(appliedCoupon.discount_value, subtotal)
         : 0
     const discountedSubtotal = subtotal - couponDiscount
-    const tax = discountedSubtotal * taxRate
+    const tax = taxRate > 0 ? discountedSubtotal * (taxRate / (100 + taxRate)) : 0
     const isFreeShipping = discountedSubtotal > siteSettings.free_shipping_threshold
     const shippingFee = 0
-    const total = isQuoteMode && quoteData ? quoteData.total : discountedSubtotal + tax + shippingFee
+    const total = isQuoteMode && quoteData ? quoteData.total : discountedSubtotal + shippingFee
 
     // Load applied coupon from sessionStorage (set in cart page)
     useEffect(() => {

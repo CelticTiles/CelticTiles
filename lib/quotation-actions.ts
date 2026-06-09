@@ -162,6 +162,17 @@ export async function saveQuotation(
 
       // Step 3: No existing lead — create new one
       if (!resolvedLeadId) {
+        const addressParts = [
+          savedQuote.delivery_address_line1 as string,
+          savedQuote.delivery_address_line2 as string,
+          savedQuote.delivery_city as string,
+          savedQuote.delivery_postcode as string,
+        ].filter(Boolean);
+        
+        const addressString = addressParts.length > 0 ? `Address: ${addressParts.join(", ")}` : "";
+        const baseMessage = `Auto-created from quote ${savedQuote.quote_number}`;
+        const finalMessage = [addressString, baseMessage].filter(Boolean).join("\n\n");
+
         const { data: newLead } = await supabase
           .from("leads")
           .insert({
@@ -170,7 +181,7 @@ export async function saveQuotation(
             phone: savedQuote.customer_phone || null,
             source: "quotation",
             status: "Quoted",
-            message: `Auto-created from quote ${savedQuote.quote_number}`,
+            message: finalMessage,
           })
           .select("id")
           .single();

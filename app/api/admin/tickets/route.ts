@@ -103,7 +103,7 @@ export async function POST(request: Request) {
 
     if (ticket.assignee?.email) {
       // Fire-and-forget email dispatch
-      sendTicketAssignmentEmail({
+      await sendTicketAssignmentEmail({
         assigneeEmail: ticket.assignee.email,
         assigneeName: ticket.assignee.full_name || "Team Member",
         ticketTitle: ticket.title,

@@ -66,6 +66,8 @@ function TicketsContent() {
   const [comments, setComments] = useState<TicketComment[]>([])
   const [newComment, setNewComment] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
+  const [editLeadDropdownOpen, setEditLeadDropdownOpen] = useState(false)
+  const [editLeadSearchQuery, setEditLeadSearchQuery] = useState("")
 
   useEffect(() => {
     fetchTickets()
@@ -712,15 +714,82 @@ function TicketsContent() {
                       />
                     </div>
                   </div>
-                  {selectedTicket.lead && (
-                    <div>
-                      <p className="text-muted-foreground text-xs mb-1">Linked Lead</p>
-                      <Link href={`/admin/crm/leads/${selectedTicket.lead.id}`} className="font-medium text-primary hover:underline flex items-center gap-1.5">
-                        <Users2 className="w-4 h-4" />
-                        {selectedTicket.lead.name}
-                      </Link>
+                  <div className="relative">
+                    <p className="text-muted-foreground text-xs mb-1">Linked CRM Lead (Customer)</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditLeadDropdownOpen(!editLeadDropdownOpen)}
+                        className="flex items-center justify-between h-8 py-1 px-2 text-xs font-semibold border border-border/60 bg-transparent hover:bg-muted/50 rounded-md w-[200px]"
+                      >
+                        <span className="truncate text-left">
+                          {selectedTicket.lead ? `${selectedTicket.lead.name}` : "No Lead Linked"}
+                        </span>
+                        <svg className="h-3 w-3 text-gray-400 shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {selectedTicket.lead && (
+                        <Link
+                          href={`/admin/crm/leads/${selectedTicket.lead.id}`}
+                          className="font-medium text-primary hover:underline flex items-center gap-1 text-xs shrink-0"
+                        >
+                          <Users2 className="w-3.5 h-3.5" />
+                          View
+                        </Link>
+                      )}
                     </div>
-                  )}
+
+                    {editLeadDropdownOpen && (
+                      <div className="absolute z-50 w-[240px] mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto p-2 space-y-2">
+                        <Input
+                          placeholder="Search lead by name..."
+                          value={editLeadSearchQuery}
+                          onChange={e => setEditLeadSearchQuery(e.target.value)}
+                          className="h-8 text-xs"
+                          autoFocus
+                        />
+                        <div className="divide-y divide-gray-100 max-h-44 overflow-y-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleUpdateField({ lead_id: null })
+                              setEditLeadSearchQuery("")
+                              setEditLeadDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-2 py-1.5 text-xs text-red-600 hover:bg-gray-100 rounded"
+                          >
+                            No Lead (Clear Selection)
+                          </button>
+                          {(() => {
+                            const query = editLeadSearchQuery.toLowerCase().trim()
+                            const filtered = leads.filter(l =>
+                              (l.name || "").toLowerCase().includes(query) ||
+                              (l.email || "").toLowerCase().includes(query)
+                            )
+                            if (filtered.length === 0) {
+                              return <p className="text-xs text-muted-foreground text-center py-2">No leads found</p>
+                            }
+                            return filtered.map(l => (
+                              <button
+                                key={l.id}
+                                type="button"
+                                onClick={() => {
+                                  handleUpdateField({ lead_id: l.id })
+                                  setEditLeadSearchQuery("")
+                                  setEditLeadDropdownOpen(false)
+                                }}
+                                className="w-full text-left px-2 py-1.5 text-xs hover:bg-gray-100 rounded flex justify-between items-center gap-2"
+                              >
+                                <span className="font-semibold text-foreground truncate">{l.name}</span>
+                                <span className="text-muted-foreground text-[10px] truncate max-w-[100px]">{l.email}</span>
+                              </button>
+                            ))
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Comments Section */}

@@ -15,7 +15,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     const supabase = await createServerSupabase()
     const { data } = await supabase
       .from("products")
-      .select("id, name, slug, price, image, description, stock, status, category_id")
+      .select("id, name, slug, price, image, description, stock, status, category_id, sqm_per_box, coverage, panel_length, panel_width")
       .ilike("name", `%${query}%`)
       .eq("status", "active")
       .limit(50)

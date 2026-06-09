@@ -3,9 +3,10 @@
 import Link from "next/link"
 import Image from "next/image"
 import { memo, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { formatPrice } from "@/lib/utils"
-import { Heart, ShoppingCart, Loader2, Plus, Minus, Trash2 } from "lucide-react"
+import { Heart, ShoppingCart, Loader2, Plus, Minus, Trash2, Calculator } from "lucide-react"
 
 import { useStore } from "@/hooks/useStore"
 import { useWishlist } from "@/hooks/useWishlist"
@@ -14,7 +15,18 @@ import { Button } from "@/components/ui/button"
 import type { Product } from "@/lib/supabase-types"
 import { toast } from "sonner"
 
-export type ProductCardProduct = Pick<Product, "id" | "name" | "slug" | "price" | "image" | "stock" | "material">
+export type ProductCardProduct = Pick<Product, "id" | "name" | "slug" | "price" | "image" | "stock" | "material"> & {
+    sqm_per_box?: number | string | null
+    coverage?: string | null
+    panel_length?: string | null
+    panel_width?: string | null
+}
+
+/** Mirrors the same check used in ProductClient.tsx */
+function productHasCalculator(p: ProductCardProduct): boolean {
+    const isWallPanel = !!(p.panel_length && p.panel_width) && !p.sqm_per_box && !p.coverage
+    return !!(p.sqm_per_box || p.coverage || isWallPanel)
+}
 
 interface ProductCardProps {
     product: ProductCardProduct
@@ -39,6 +51,7 @@ function withImageWidth(url: string | null | undefined, width = 300): string {
 
 export const ProductCard = memo(function ProductCard({ product, priority = false }: ProductCardProps) {
 
+    const router = useRouter()
     const { isInWishlist, user } = useStore()
     const setCartCount = useStore((state) => state.setCartCount)
     const setCartItems = useStore((state) => state.setCartItems)
@@ -47,6 +60,7 @@ export const ProductCard = memo(function ProductCard({ product, priority = false
     const { addToWishlist, removeFromWishlist } = useWishlist()
     const isWishlisted = isInWishlist(product.id)
     const isLoggedIn = !!user
+    const hasCalculator = productHasCalculator(product)
     const [isAddingToCart, setIsAddingToCart] = useState(false)
     const [isUpdatingCart, setIsUpdatingCart] = useState(false)
     const [isTogglingWishlist, setIsTogglingWishlist] = useState(false)
@@ -99,17 +113,24 @@ export const ProductCard = memo(function ProductCard({ product, priority = false
     const handleAddToCart = async (e: React.MouseEvent) => {
         e.preventDefault()
         e.stopPropagation()
-        
+
         if (product.stock === 0) {
             toast.error("This product is out of stock")
             return
         }
-        
+
         if (!isLoggedIn) {
             window.location.href = "/login"
             return
         }
-        
+
+        // Products with a calculator must go through the product page
+        // so the user can enter room dimensions before adding to cart.
+        if (hasCalculator) {
+            router.push(`/product/${product.slug}`)
+            return
+        }
+
         setIsAddingToCart(true)
         try {
             const { error: addError } = await addToCartAction({
@@ -119,9 +140,9 @@ export const ProductCard = memo(function ProductCard({ product, priority = false
                 product_image: product.image,
                 quantity: 1
             })
-            
+
             if (addError) throw new Error(addError)
-            
+
             await syncCart()
             toast.success("Added to cart!")
         } catch (err) {
@@ -274,8 +295,8 @@ export const ProductCard = memo(function ProductCard({ product, priority = false
                         </button>
                     </div>
                 ) : (
-                    /* ====== ADD TO CART BUTTON ====== */
-                    <Button 
+                    /* ====== ADD TO CART / VIEW PRODUCT BUTTON ====== */
+                    <Button
                         className="w-full bg-tm-red hover:bg-tm-red/90 text-white rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 h-10 font-bold disabled:bg-gray-400 disabled:hover:bg-gray-400 disabled:hover:scale-100 disabled:cursor-not-allowed"
                         onClick={handleAddToCart}
                         disabled={isAddingToCart || product.stock === 0}
@@ -286,6 +307,11 @@ export const ProductCard = memo(function ProductCard({ product, priority = false
                             <>
                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                 Adding...
+                            </>
+                        ) : hasCalculator ? (
+                            <>
+                                <Calculator className="h-4 w-4 mr-2" />
+                                Calculate & Add
                             </>
                         ) : (
                             <>
