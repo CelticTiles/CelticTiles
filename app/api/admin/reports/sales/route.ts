@@ -15,6 +15,7 @@ export async function GET() {
       supabase
         .from("orders")
         .select("id, order_number, total, status, created_at, source, items")
+        .or("payment_method.neq.card,payment_status.neq.Pending")
         .order("created_at", { ascending: false }),
       supabase
         .from("leads")

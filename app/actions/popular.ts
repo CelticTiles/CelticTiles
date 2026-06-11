@@ -39,6 +39,7 @@ export async function getPopularProductsAction(options?: {
         const { data: orders, error: ordersError } = await supabase
             .from("orders")
             .select("items")
+            .or("payment_method.neq.card,payment_status.neq.Pending")
 
         if (ordersError) {
             console.error("[getPopularProductsAction] Orders fetch error:", ordersError)

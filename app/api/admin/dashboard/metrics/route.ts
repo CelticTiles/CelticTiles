@@ -17,6 +17,7 @@ export async function GET() {
       supabase
         .from("orders")
         .select("id, order_number, customer_name, total, status, created_at")
+        .or("payment_method.neq.card,payment_status.neq.Pending")
         .order("created_at", { ascending: false })
         .limit(500),
 
