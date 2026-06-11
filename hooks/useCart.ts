@@ -61,7 +61,7 @@ export function useCart() {
     return error instanceof Error ? error.message : fallback
   }, [])
 
-  // Fetch cart when hydrated and when user changes
+
   useEffect(() => {
     if (!hasHydrated) return
     

@@ -97,7 +97,6 @@ export async function PATCH(req: Request) {
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
     const supabase = await createServerSupabase()
 
-    // Fetch old lead to detect status changes
     const { data: oldLead } = await (supabase as any).from('leads').select('status').eq('id', id).maybeSingle()
 
     const { error } = await (supabase as any).from('leads').update(updates).eq('id', id)

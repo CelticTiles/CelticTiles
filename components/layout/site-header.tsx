@@ -88,7 +88,7 @@ export function SiteHeader({
   const wishlistCountState = useStore((state) => state.wishlist.length);
 
   
-  // Use server-provided session for auth (single source of truth)
+
   const user = session?.userId ? {
     id: session.userId,
     name: session.userName || 'User',
@@ -101,7 +101,7 @@ export function SiteHeader({
   const isInventory = () => user?.role === 'inventory';
   const canAccessDashboard = () => user?.role === 'admin' || user?.role === 'sales' || user?.role === 'inventory';
   
-  // ✅ Use reactive subscription to cart count from Zustand store
+
   const cartCount = useStore((state) => state.cartCount);
   const wishlistCount = hasHydrated ? wishlistCountState : initialWishlistCount;
   

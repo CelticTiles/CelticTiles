@@ -35,7 +35,7 @@ export default function WishlistClient({ initialProducts, userId }: WishlistClie
     const [addingItemId, setAddingItemId] = useState<string | null>(null)
     const [removingItemId, setRemovingItemId] = useState<string | null>(null)
 
-    // Sync initial wishlist from server to global store
+
     useEffect(() => {
         setWishlist(initialProducts.map(p => p.id))
     }, [initialProducts, setWishlist])
@@ -55,7 +55,7 @@ export default function WishlistClient({ initialProducts, userId }: WishlistClie
             const updatedProducts = products.filter(p => p.id !== productId)
             setProducts(updatedProducts)
             
-            // Sync to global store
+
             setWishlist(updatedProducts.map(p => p.id))
             
             toast.success("Removed from wishlist")

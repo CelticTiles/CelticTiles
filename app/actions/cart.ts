@@ -37,7 +37,7 @@ export async function fetchCartAction(): Promise<{ data: CartItem[] | null; erro
       return { data: [], error: null }
     }
 
-    // Fetch cart items
+
     const { data, error } = await supabase
       .from('cart_items')
       .select(CART_ITEM_SELECT_FIELDS)
@@ -70,7 +70,7 @@ export async function addToCartAction(input: AddToCartInput): Promise<{ data: Ca
       return { data: null, error: 'Must be logged in to add to cart' }
     }
 
-    // Check if item already exists in cart
+
     const variantId = input.variant_id || null
     let existingQuery = supabase
       .from('cart_items')
@@ -79,7 +79,7 @@ export async function addToCartAction(input: AddToCartInput): Promise<{ data: Ca
       .eq('product_id', input.product_id)
 
     // CRITICAL: .eq('col', null) produces "col = null" which NEVER matches in SQL.
-    // Must use .is('col', null) for null comparison.
+
     if (variantId) {
       existingQuery = existingQuery.eq('variant_id', variantId)
     } else {
@@ -88,7 +88,7 @@ export async function addToCartAction(input: AddToCartInput): Promise<{ data: Ca
 
     const { data: existingItems } = await existingQuery.limit(1)
 
-    // If exists, update quantity
+
     if (existingItems && existingItems.length > 0) {
       const existingItem = existingItems[0] as CartItemExisting
       const newQuantity = existingItem.quantity + (input.quantity || 1)
@@ -153,7 +153,7 @@ export async function updateCartQuantityAction(cartItemId: string, quantity: num
       return { data: null, error: 'Must be logged in' }
     }
 
-    // If quantity is 0 or less, remove the item
+
     if (quantity < 1) {
       const { error: deleteError } = await supabase
         .from('cart_items')

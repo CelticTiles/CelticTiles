@@ -115,7 +115,6 @@ export async function getPopularProductsAction(options?: {
                 return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             })
         }
-        // If no orders exist, products keep their default order (newest first from query)
 
         return { data: filtered.slice(0, limit), error: null }
     } catch (err: any) {

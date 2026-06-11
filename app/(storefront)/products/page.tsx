@@ -27,7 +27,7 @@ function findCategoryById(categories: CategoryWithChildren[], id: string): Categ
 
 const PRODUCTS_PER_PAGE = 20
 
-const PRODUCT_CARD_SELECT = 'id, name, slug, price, image, stock, material, sqm_per_box, coverage, panel_length, panel_width'
+const PRODUCT_CARD_SELECT = 'id, name, slug, price, image, stock, material, sqm_per_box, panel_length, panel_width'
 const FILTER_FIELDS_SELECT = 'material, finish, size, thickness, application_area, brand, is_clearance'
 
 const PRICE_OPTIONS = [

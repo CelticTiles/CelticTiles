@@ -33,8 +33,6 @@ export function ReviewForm({ productId, productName, onReviewSubmitted }: Review
 
         const checkPurchase = async () => {
             try {
-                console.log('[ReviewForm] Checking purchase for user:', user.id, 'product:', productId)
-                
                 // Query orders where:
                 // 1. user_id matches the logged-in user
                 // 2. payment was completed (Paid)
@@ -46,8 +44,6 @@ export function ReviewForm({ productId, productName, onReviewSubmitted }: Review
                     .eq('payment_status', 'Paid')
                     .limit(10)
 
-                console.log('[ReviewForm] Orders query result:', { data, error, count: data?.length })
-                
                 if (error) {
                     console.error('[ReviewForm] Purchase check error:', error)
                     setHasPurchased(false)
@@ -60,7 +56,6 @@ export function ReviewForm({ productId, productName, onReviewSubmitted }: Review
                     return items.some((item: any) => item.product_id === productId)
                 })
                 
-                console.log('[ReviewForm] Has purchased this product:', hasProduct)
                 setHasPurchased(hasProduct)
             } catch (err) {
                 console.error('[ReviewForm] Purchase check exception:', err)
@@ -113,7 +108,7 @@ export function ReviewForm({ productId, productName, onReviewSubmitted }: Review
 
         setIsSubmitting(true)
         try {
-            // Fetch full_name from profiles to ensure customer_name is always set
+
             let customerName = user.name || null
             if (!customerName) {
                 const { data: profile } = await supabase

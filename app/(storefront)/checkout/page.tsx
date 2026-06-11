@@ -19,7 +19,7 @@ export default async function CheckoutPage() {
     const supabase = await createServerSupabase()
 
     if (session.userId) {
-        // Fetch saved addresses server-side (bypasses browser auth timing + RLS)
+
         const { data: addressData } = await supabase
             .from('customer_addresses')
             .select('*')
@@ -43,7 +43,6 @@ export default async function CheckoutPage() {
             })
         }
 
-        // Fetch profile for billing pre-fill
         const { data: profileData } = await supabase
             .from('profiles')
             .select('full_name, phone')

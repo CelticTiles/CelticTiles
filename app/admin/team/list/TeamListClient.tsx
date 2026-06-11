@@ -23,7 +23,7 @@ interface TeamListClientProps {
 export default function TeamListClient({ initialTeamMembers, serverError }: TeamListClientProps) {
   const { teamMembers: currentTeamMembers, addTeamMember, updateTeamMember, deleteTeamMember, resetTeamMemberPassword, refetch, isLoading } = useTeamMembers()
   
-  // Use server-fetched data initially, then switch to hook data once loaded
+
   const teamMembers = !isLoading ? currentTeamMembers : initialTeamMembers
   
   const [searchTerm, setSearchTerm] = useState('')

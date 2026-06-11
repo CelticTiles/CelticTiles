@@ -10,7 +10,6 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Use plain server-side client (same pattern as loaders.ts getCachedCategories)
     // This works with the anon key since categories are publicly readable on the server
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

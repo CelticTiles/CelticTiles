@@ -57,7 +57,7 @@ if (aliasMatch?.product_id) {
   productId = aliasMatch.product_id;
 }
             // .catch(() => ({ data: null }));
-          // If an alias match was found, fetch its current stock
+
           if (productId && !currentStock) {
             const { data: prodStock } = await supabase
               .from('products')
@@ -68,7 +68,6 @@ if (aliasMatch?.product_id) {
           }
         }
 
-        // If still no productId, fall back to SKU matching
         if (!productId && item.sku) {
           const { data: skuMatch } = await supabase
             .from('products')
@@ -83,7 +82,6 @@ if (aliasMatch?.product_id) {
           }
         }
 
-        // If still no productId, try matching by name
         if (!productId && item.name) {
           const { data: nameMatch } = await supabase
             .from('products')
@@ -108,7 +106,6 @@ if (aliasMatch?.product_id) {
         currentStock = linkedProd?.stock || 0;
       }
 
-      // If still no product match, collect for user decision
       if (!productId) {
         unmatchedItems.push({
           name: item.name,
@@ -145,7 +142,6 @@ if (aliasMatch?.product_id) {
       });
     }
 
-    // If there are unmatched items, return them for user action
     if (unmatchedItems.length > 0) {
       return NextResponse.json({
         success: false,

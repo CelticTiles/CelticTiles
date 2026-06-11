@@ -26,7 +26,7 @@ export default async function OrdersListPage() {
     redirect("/")
   }
 
-  // ✅ Use server-side client (properly authenticated)
+
   const supabase = await createServerSupabase()
 
   // TODO: Implement sales-specific order filtering

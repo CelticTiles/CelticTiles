@@ -13,7 +13,6 @@ export default async function AccountPage() {
         redirect("/login")
     }
 
-    // Fetch profile + orders server-side — no client hook needed
     const supabase = await createServerSupabase()
     const [{ data: profile }, { data: orders }, { count: orderCount }] = await Promise.all([
         supabase.from("profiles").select("full_name, phone").eq("id", session.userId).single(),

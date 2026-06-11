@@ -17,7 +17,6 @@ export default async function OrdersPage() {
         redirect("/login")
     }
 
-    // Fetch orders server-side — no client hook needed
     const supabase = await createServerSupabase()
     const { data: orders } = await supabase
         .from("orders")

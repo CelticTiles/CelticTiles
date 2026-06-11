@@ -45,7 +45,6 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
     const body = await request.json()
     const supabase = await createServerSupabase()
 
-    // Fetch old ticket to see if assignee changed, and for logging status changes
     const { data: oldTicket } = await supabase.from("tickets").select("assigned_to, status, lead_id").eq("id", params.id).single()
 
     // Status logic: if assigned_to is newly set, and status is open, set to assigned

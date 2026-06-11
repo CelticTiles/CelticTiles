@@ -137,7 +137,7 @@ export function QuotationsTable({ initialQuotations }: QuotationsTableProps) {
           bVal = new Date(b.quote_date || 0).getTime();
           break;
         case "invoiced_date":
-          // If a quote was converted to order, it might have an updated_at status change to accepted.
+
           // Let's use updated_at if status is 'accepted' as a proxy for invoiced date, otherwise fallback to 0.
           aVal = a.status === "accepted" ? new Date(a.updated_at || 0).getTime() : 0;
           bVal = b.status === "accepted" ? new Date(b.updated_at || 0).getTime() : 0;

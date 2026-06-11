@@ -61,7 +61,7 @@ export function useWishlist() {
     }
   }, [supabase])
 
-  // Sync wishlist IDs to Zustand store ONLY after hydration and when data changes
+
   useEffect(() => {
     // Wait for Zustand to hydrate first
     if (!hasHydrated) return

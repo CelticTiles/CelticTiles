@@ -38,7 +38,7 @@ export function isHeaderOrNoiseLine(line: string): boolean {
   // [Qty] [Code] [Description...]
   const isProductPattern = /^\d+([.,]\d+)?\s+[A-Z0-9/.-]+\s+.+/.test(line.trim())
   
-  // If it's a product pattern, it's NOT noise
+
   if (isProductPattern) return false
 
   // Otherwise, if it has very few words, it's likely noise

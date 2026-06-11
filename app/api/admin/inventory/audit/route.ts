@@ -71,7 +71,6 @@ export async function POST(req: Request) {
       variance: item.physical_count - item.db_stock,
     }))
 
-    // Save audit record
     const { data: audit, error: insertError } = await supabase
       .from("stock_audits" as never)
       .insert({

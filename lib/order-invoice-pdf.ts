@@ -407,7 +407,6 @@ export async function generateOrderInvoicePdfBuffer(order: InvoiceOrderData): Pr
     },
   })
 
-  // If the last table page ends below the footer start height, add a page for the footer.
   const finalY = (doc as any).lastAutoTable.finalY || 0
   const fTop = PAGE_H - FOOTER_H - 2
   if (finalY > fTop) {

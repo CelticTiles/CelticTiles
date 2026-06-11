@@ -38,7 +38,7 @@ export default async function ProductsListPage() {
 
   const supabase = await createServerSupabase()
 
-  // Use wildcard select like the hook does, plus relationships
+
   const { data: products, error } = await supabase
     .from("products")
     .select('*, categories!category_id(name, parent_id), product_images!left(id, image_url, is_primary, display_order)')

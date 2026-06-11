@@ -13,7 +13,7 @@ export function useSearchPlaceholderTypewriter(
   selector: string,
   suffixes: string[]
 ): void {
-  // Use ref to track animation state
+
   const animationRef = useRef<{
     timeoutId: ReturnType<typeof setTimeout> | null;
     isRunning: boolean;
@@ -53,7 +53,7 @@ export function useSearchPlaceholderTypewriter(
       inputElement.placeholder = PREFIX;
 
         const animate = () => {
-          // Check if element still exists
+
           if (!document.querySelector(selector)) {
             animationState.isRunning = false;
             return;

@@ -1,4 +1,4 @@
-// User role types
+
 export type UserRole = 'customer' | 'sales' | 'admin' | 'inventory';
 
 // Role permission helpers

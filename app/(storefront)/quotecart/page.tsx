@@ -68,7 +68,6 @@ export default function QuoteCartPage() {
           .map(i => i.product_id as string)
 
         if (missingIds.length > 0) {
-          console.log("[QuoteCart] Fetching missing product images...", missingIds)
           const supabase = getSupabaseBrowserClient()
           const { data, error } = await supabase
             .from("products")

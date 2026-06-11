@@ -11,7 +11,6 @@ import {
 import { sendAdminNewOrderNotification } from "@/lib/email"
 import type { Database } from "@/supabase/database.types"
 
-
 type PaymentMethod = "card" | "offline_cash" | "card_instore" | "bank_transfer"
 
 interface CreateOrderRequestBody {
@@ -118,22 +117,14 @@ export async function POST(request: NextRequest) {
     const isOfflinePayment = paymentMethod === "offline_cash" || paymentMethod === "card_instore" || paymentMethod === "bank_transfer"
     const isQuoteMode = !!(body as any).quoteId && !!(body as any).quoteSnapshot
 
-    console.log(`[create-order] Received request from user ${session.userId} for method ${paymentMethod}`);
-    
     // Quote mode: always use the passed quote snapshot — no cart lookup needed
-    console.log(`[create-order] isQuoteMode = ${isQuoteMode}`)
     let snapshot;
     if (isQuoteMode) {
       snapshot = (body as any).quoteSnapshot;
     } else {
-      console.log(`[create-order] Calling buildSecureCheckoutSnapshot...`)
       snapshot = await buildSecureCheckoutSnapshot(supabase, session.userId, body.couponCode)
-      console.log(`[create-order] buildSecureCheckoutSnapshot finished!`)
     }
 
-    console.log(`[create-order] Snapshot built successfully, total: ${snapshot.total}`);
-
-    // ✅ Save address server-side (non-blocking) — avoids client-side Supabase hangs
     if (!isQuoteMode && body.saveAddress && street && city && pincode) {
       void (async () => {
         try {
@@ -159,14 +150,9 @@ export async function POST(request: NextRequest) {
               is_default: false,
               label: null,
             }])
-            if (insertErr) {
-              console.warn('[create-order] Address insert failed (non-critical):', insertErr)
-            } else {
-              console.log('[create-order] Address saved successfully')
-            }
           }
         } catch (err) {
-          console.warn('[create-order] Address save failed (non-critical):', err)
+          // ignore non-critical address save errors
         }
       })()
     }
@@ -272,22 +258,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error?.message || "Failed to create order" }, { status: 500 })
     }
     
-    console.log(`[create-order] Order inserted successfully: ${orderNumber}`);
 
-
-    // ✅ Notify Admin about new order (non-blocking)
     sendAdminNewOrderNotification({
       customerName: fullName,
       orderNumber: orderNumber,
       total: snapshot.total,
     }).catch(err => console.error('[Email] Admin notification failed:', err))
 
-    // ✅ NEW: If this order came from a quotation, mark the quotation as accepted
-
     if (isQuoteMode && (body as any).quoteId) {
       const quoteId = (body as any).quoteId
       try {
-        // Fetch quote to get lead_id
+
         const { data: quote } = await supabase
           .from("quotations")
           .select("lead_id, quote_number")
@@ -302,9 +283,6 @@ export async function POST(request: NextRequest) {
           })
           .eq("id", quoteId)
           
-        console.log(`[create-order] ✅ Quotation ${quoteId} marked as accepted`)
-
-        // ✅ Sync with CRM: Update lead status to 'Converted'
         if (quote?.lead_id) {
           await supabase
             .from("leads")
@@ -317,13 +295,10 @@ export async function POST(request: NextRequest) {
             note: `Order ${orderNumber} created from storefront checkout (Quote ${quote.quote_number})`,
             performed_by: session.userId,
           })
-          console.log(`[create-order] ✅ CRM lead ${quote.lead_id} updated to Converted`)
         }
       } catch (quoteErr) {
-        console.warn("[create-order] Failed to update quotation/lead status (non-blocking):", quoteErr)
       }
     }
-
 
     if (paymentMethod === "offline_cash" || paymentMethod === "card_instore" || paymentMethod === "bank_transfer") {
       await deductStockForOrderItems(supabase, snapshot.items)

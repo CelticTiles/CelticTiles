@@ -26,14 +26,6 @@ export function ConfirmOrderEmail({ orderNumber }: ConfirmOrderEmailProps) {
     })
       .then((res) => res.json())
       .then((data) => {
-        if (data.email?.sent) {
-          console.log('[ConfirmOrderEmail] ✅ Confirmation email sent')
-        } else if (data.email?.alreadySent) {
-          console.log('[ConfirmOrderEmail] ✅ Email already sent (skipped)')
-        }
-        if (data.paymentVerified) {
-          console.log('[ConfirmOrderEmail] ✅ Payment verified, intent:', data.paymentIntentId)
-        }
 
         // Auto download bill/invoice copy if return path is available
         if (data.invoice?.path) {

@@ -44,7 +44,7 @@ export default async function CustomersListPage() {
     throw new Error('Failed to fetch customer role')
   }
 
-  // Fetch profiles
+
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
     .select('id, email, full_name, phone, created_at')
@@ -57,7 +57,7 @@ export default async function CustomersListPage() {
     throw new Error(`Failed to load customers: ${profilesError.message}`)
   }
 
-  // Fetch all orders
+
   const { data: orders, error: ordersError } = await supabase
     .from('orders')
     .select('user_id, total, created_at')

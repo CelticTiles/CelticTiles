@@ -123,7 +123,7 @@ export async function getServerSession(): Promise<ServerSession> {
       return { userId: null, userName: null, userEmail: null, userRole: 'customer' }
     }
 
-    // Fetch profile with role
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('role_id, roles(name)')
@@ -202,16 +202,16 @@ export const getNavData = cache(async function getNavData(): Promise<{ categorie
       const indexA = ORDER.indexOf(nameA)
       const indexB = ORDER.indexOf(nameB)
       
-      // If both are found in the list, sort by index
+
       if (indexA !== -1 && indexB !== -1) return indexA - indexB
       
-      // If only A is found, it comes first
+
       if (indexA !== -1) return -1
       
-      // If only B is found, it comes first
+
       if (indexB !== -1) return 1
       
-      // If neither is found, sort alphabetically
+
       return nameA.localeCompare(nameB)
     })
 
@@ -339,12 +339,12 @@ export async function getWishlistData(userId: string | null): Promise<{ wishlist
  * Optimized to fetch only necessary data for initial page load
  */
 export async function getHomePageData() {
-  // Session first (fast ~50ms auth check), then everything else in ONE parallel batch
+
   const session = await getServerSession()
 
   const [{ categories }, { products }, { cart, cartCount }, { wishlist, wishlistCount }] = await Promise.all([
     getNavData(),
-    getProducts(12),  // ✅ Fetch only 12 products for homepage
+    getProducts(12),
     getCartData(session.userId),
     getWishlistData(session.userId)
   ])

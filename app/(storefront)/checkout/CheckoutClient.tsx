@@ -50,7 +50,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
     const [selectedAddressId, setSelectedAddressId] = useState<string>("")
     const [useNewAddress, setUseNewAddress] = useState(initialAddresses.length === 0)
 
-    // ✅ Pre-fill billing from server-fetched profile + email
+
     const [formData, setFormData] = useState({
         full_name: initialProfile?.full_name ?? "",
         email: userEmail ?? "",
@@ -77,7 +77,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
             if (stored) {
                 const parsed = JSON.parse(stored)
                 setQuoteData(parsed)
-                // Pre-fill all customer + delivery details from quote
+
                 setFormData(prev => ({
                     ...prev,
                     full_name: parsed.customerName || prev.full_name,
@@ -131,7 +131,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    // ✅ BULLETPROOF: Auto-fill form via State Update (Using exact DB fields)
+
     const handleAddressSelection = (addressId: string) => {
         setSelectedAddressId(addressId)
         const address = addresses.find(a => a.id === addressId)
@@ -188,7 +188,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                 return
             }
 
-            // Use cached userId from state (fetched on mount) - avoids AbortError
+
             if (!userId) {
                 clearTimeout(timeoutId)
 

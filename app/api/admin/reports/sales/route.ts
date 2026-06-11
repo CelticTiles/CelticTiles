@@ -11,7 +11,6 @@ export async function GET() {
 
     const supabase = await createServerSupabase()
 
-    // Fetch orders, leads, and quotations for comprehensive reporting
     const [ordersRes, leadsRes, quotationsRes] = await Promise.all([
       supabase
         .from("orders")

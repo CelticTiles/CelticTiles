@@ -33,8 +33,6 @@ export function useCoupons() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-
-
   async function fetchCoupons() {
     if (inFlightRef.current) return
 
@@ -54,7 +52,6 @@ export function useCoupons() {
       const processed = (data || []).map((c: Coupon) => {
         let effectiveStatus = c.status
 
-        // Check expiry
         if (c.expires_at) {
           let expiryDate = new Date(c.expires_at)
           if (!c.expires_at.includes('T')) {
@@ -63,7 +60,6 @@ export function useCoupons() {
           if (expiryDate < now) effectiveStatus = 'expired'
         }
 
-        // Check usage limit
         if (c.usage_limit && c.used_count >= c.usage_limit) {
           effectiveStatus = 'expired'
         }

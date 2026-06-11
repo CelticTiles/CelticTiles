@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Save lead via secure DB function (SECURITY DEFINER — no service role key needed)
+
     try {
       const supabase = await createServerSupabase()
       await (supabase as any).rpc('submit_contact_lead', {

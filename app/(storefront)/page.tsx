@@ -2,7 +2,7 @@ import { getHomePageData } from "@/lib/loaders"
 import { getPopularProductsAction } from "@/app/actions/popular"
 import HomeClient from "./HomeClient"
 
-// ✅ Enable ISR with 60-second revalidation (was: force-dynamic)
+
 // This enables caching while keeping data fresh
 export const revalidate = 60
 

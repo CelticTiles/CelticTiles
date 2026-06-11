@@ -20,7 +20,6 @@ interface StoreState {
     _hasHydrated: boolean
     setHasHydrated: (state: boolean) => void
 
-    // User
     user: User | null
     login: (id: string, name: string, email: string, role: UserRole) => void
     logout: () => Promise<void>
@@ -32,7 +31,7 @@ interface StoreState {
 
     // Wishlist (localStorage for quick toggle UI, synced to Supabase in useWishlist)
     wishlist: string[] // product IDs
-    setWishlist: (productIds: string[]) => void // Sync from Supabase
+    setWishlist: (productIds: string[]) => void
     toggleWishlist: (productId: string) => void
     isInWishlist: (productId: string) => boolean
 
@@ -52,16 +51,15 @@ export const useStore = create<StoreState>()(
             _hasHydrated: false,
             setHasHydrated: (state) => set({ _hasHydrated: state }),
 
-            // User
             user: null,
             login: (id, name, email, role) => set({ user: { id, name, email, role } }),
             logout: async () => {
-                // ✅ IMPORTANT: Supabase.auth.signOut() is called in AdminHeader
+
                 // This function just clears the Zustand state
                 // Always clear local state
                 set({ user: null, wishlist: [] })
                 
-                // ✅ CRITICAL: Clear localStorage to prevent credential persistence
+
                 if (typeof window !== 'undefined') {
                     localStorage.removeItem('celtic-tiles-storage')
                     sessionStorage.clear()
@@ -78,7 +76,7 @@ export const useStore = create<StoreState>()(
 
             // Wishlist (for UI toggle - actual persistence in useWishlist hook)
             wishlist: [],
-            setWishlist: (productIds) => set({ wishlist: productIds }), // Sync from Supabase
+            setWishlist: (productIds) => set({ wishlist: productIds }),
             toggleWishlist: (productId) => set((state) => {
                 if (state.wishlist.includes(productId)) {
                     return { wishlist: state.wishlist.filter(id => id !== productId) }

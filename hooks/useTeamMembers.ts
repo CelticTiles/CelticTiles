@@ -76,7 +76,6 @@ export function useTeamMembers() {
     return () => { mountedRef.current = false }
   }, [fetchTeamMembers])
 
-  // Keep admin team pages fresh without requiring focus changes.
   useEffect(() => {
     if (typeof window === 'undefined') return
 

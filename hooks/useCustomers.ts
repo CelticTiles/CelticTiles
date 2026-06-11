@@ -121,7 +121,7 @@ export function useCustomers() {
     return () => { mountedRef.current = false }
   }, [fetchCustomers])
 
-  // Keep admin customer screens fresh without requiring focus changes.
+
   useEffect(() => {
     if (typeof window === 'undefined') return
 

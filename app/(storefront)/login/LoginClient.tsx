@@ -63,8 +63,8 @@ export default function LoginClient() {
             
             if (data.session && data.user) {
 
-                // Fetch user's profile with role
-                // Use left join (not !inner) to allow login even if role is missing
+
+
                 const { data: profile, error: profileError } = await supabase
                     .from('profiles')
                     .select('role_id, roles(name)')
@@ -83,10 +83,10 @@ export default function LoginClient() {
                 // Get user name
                 const userName = data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User'
                 
-                // Sync to Zustand store
+
                 login(data.user.id, userName, data.user.email!, roleName)
                 
-                // ✅ Show login success toast
+
                 toast.success(`Welcome back, ${userName}!`)
 
                 reportAuthAudit('login_success', {
@@ -96,7 +96,7 @@ export default function LoginClient() {
                     path: window.location.pathname,
                 })
                 
-                // ✅ Clear loading state before redirect
+
                 setIsLoading(false)
                 
                 // Redirect based on role

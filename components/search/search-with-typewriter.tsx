@@ -21,7 +21,6 @@ export function SearchWithTypewriter() {
     "Kitchen Tiles",
   ];
 
-  // Use the hook with the input selector and suffixes
   useSearchPlaceholderTypewriter("#tile-search-box", searchSuffixes);
 
   return (

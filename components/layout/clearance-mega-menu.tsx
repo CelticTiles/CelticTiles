@@ -43,7 +43,7 @@ export const ClearanceMegaMenu = memo(function ClearanceMegaMenu({ products, cat
 
     const featuredClearanceProducts = useMemo(() => clearanceProducts.slice(0, 6), [clearanceProducts])
 
-    // If no clearance products, show empty state
+
     if (clearanceProducts.length === 0) {
         return (
             <div className="w-full bg-[#E5E9F0] border-t border-gray-200 py-8" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>

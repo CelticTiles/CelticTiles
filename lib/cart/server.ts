@@ -35,7 +35,6 @@ export async function getCartForUser(): Promise<{ cart: CartItem[]; isLoggedIn: 
             return { cart: [], isLoggedIn: false }
         }
 
-        // Fetch cart items for user
         const { data, error } = await supabase
             .from('cart_items')
             .select('id, product_id, variant_id, product_name, product_price, product_image, quantity')

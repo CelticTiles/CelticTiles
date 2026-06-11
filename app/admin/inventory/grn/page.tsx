@@ -403,7 +403,7 @@ export default function GRNPage() {
           price = parseFloat(secondLastToken.replace(/[€£$,]/g, (m) => m === "," ? "." : ""));
           // Remove the matched price/amount/discount tokens from the description
           descriptionParts = tokens.slice(0, -2);
-          // If the token before price is also numeric (Discount), remove it too
+
           if (thirdLastToken && /^\d+$/.test(thirdLastToken)) {
             descriptionParts = descriptionParts.slice(0, -1);
           }

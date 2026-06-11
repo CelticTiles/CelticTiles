@@ -10,7 +10,6 @@ export default async function CustomerDetailPage(props: Props) {
   const { id } = await props.params
   const supabase = await createServerSupabase()
 
-  // Fetch customer profile
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
@@ -21,14 +20,12 @@ export default async function CustomerDetailPage(props: Props) {
     notFound()
   }
 
-  // Fetch customer orders
   const { data: orders } = await supabase
     .from('orders')
     .select('*')
     .eq('customer_id', id)
     .order('created_at', { ascending: false })
 
-  // Fetch customer addresses
   const { data: addresses } = await supabase
     .from('customer_addresses')
     .select('*')

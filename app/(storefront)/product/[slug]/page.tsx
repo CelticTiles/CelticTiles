@@ -8,7 +8,7 @@ import type { Product } from "@/lib/supabase-types";
    Helpers
 --------------------------------------------------- */
 
-// ✅ Normalize DB → Product type that matches ProductClient usage
+
 function transformProduct(dbProduct: Record<string, unknown>): Product {
   const rawCategories = dbProduct.categories as
     | { name?: string | null; parent_id?: string | null }
@@ -21,7 +21,7 @@ function transformProduct(dbProduct: Record<string, unknown>): Product {
       }
     : null;
 
-  // ✅ BUILD IMAGES ARRAY FROM product_images TABLE
+
   const productImages = (dbProduct.product_images as Array<any>) ?? [];
   const sortedImages = productImages.sort(
     (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
@@ -67,7 +67,7 @@ function transformProduct(dbProduct: Record<string, unknown>): Product {
     created_at: dbProduct.created_at as string,
     updated_at: dbProduct.updated_at as string,
 
-    // ✅ fields missing in your error
+
     is_clearance: (dbProduct.is_clearance as boolean) ?? false,
     material: (dbProduct.material as string) ?? null,
     brand: (dbProduct.brand as string) ?? null,
@@ -94,10 +94,10 @@ export default async function Page({
   const { slug } = await params;
   const supabase = await createServerSupabase();
 
-  // ✅ Session
+
   const session = await getServerSession();
 
-  // ✅ Fetch product + images
+
   const { data: rawProduct } = await supabase
     .from("products")
     .select(
@@ -115,7 +115,7 @@ export default async function Page({
 
   const product = transformProduct(rawProduct as Record<string, unknown>);
 
-  // ✅ Related products + images
+
   const relatedQuery = supabase
     .from("products")
     .select(
@@ -139,7 +139,7 @@ export default async function Page({
     transformProduct(p as Record<string, unknown>)
   );
 
-  // ✅ Fetch published reviews server-side to bypass browser auth timing issues
+
   const { data: rawReviews } = await supabase
     .from("reviews")
     .select("*")
@@ -148,7 +148,7 @@ export default async function Page({
     .order("created_at", { ascending: false })
     .limit(20);
 
-  // ✅ Fetch profile names for all reviewers in one query
+
   const reviews = (rawReviews ?? []) as any[];
   const customerIds = [...new Set(reviews.map((r) => r.customer_id as string).filter(Boolean))];
   let profileNameMap: Record<string, string> = {};

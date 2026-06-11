@@ -64,12 +64,10 @@ export async function buildSecureCheckoutSnapshot(
   userId: string,
   couponCodeInput?: unknown
 ): Promise<SecureCheckoutSnapshot> {
-  console.log(`[secure-checkout] Fetching cart_items for ${userId}...`)
   const { data: cartRows, error: cartError } = await supabase
     .from("cart_items")
     .select("product_id, product_name, product_price, quantity, products(assigned_code)")
     .eq("user_id", userId)
-  console.log(`[secure-checkout] cart_items fetch complete. Error? ${!!cartError}`)
 
   if (cartError) {
     throw new Error("Failed to load cart")
@@ -96,13 +94,11 @@ export async function buildSecureCheckoutSnapshot(
 
   const subtotal = round2(items.reduce((sum, item) => sum + item.subtotal, 0))
 
-  console.log(`[secure-checkout] Fetching site_settings...`)
   const { data: settings } = await supabase
     .from("site_settings")
     .select("tax_rate, free_shipping_threshold")
     .eq("id", 1)
     .maybeSingle()
-  console.log(`[secure-checkout] site_settings fetch complete.`)
 
   const typedSettings = settings as SiteSettingsRow | null
   // Default to 23% Irish VAT rate if site_settings has no row or tax_rate is 0
@@ -114,13 +110,11 @@ export async function buildSecureCheckoutSnapshot(
 
   const normalizedCoupon = normalizeCouponCode(couponCodeInput)
   if (normalizedCoupon) {
-    console.log(`[secure-checkout] Fetching coupon ${normalizedCoupon}...`)
     const { data: coupon, error: couponError } = await supabase
       .from("coupons")
       .select("code, status, discount_type, discount_value, min_order_value, usage_limit, used_count, expires_at")
       .eq("code", normalizedCoupon)
       .maybeSingle()
-    console.log(`[secure-checkout] coupon fetch complete.`)
 
     if (couponError || !coupon) {
       throw new Error("Invalid coupon code")

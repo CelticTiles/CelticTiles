@@ -73,7 +73,6 @@ export function MainNav({ categories, products }: MainNavProps) {
         // Collect this category + all child IDs
         const categoryIds = [cat.id, ...(cat.children?.map((child) => child.id) || [])];
 
-        // Check if ANY product belongs to this category tree
         const hasProducts = products.some(
           (p) => categoryIds.includes(p.category_id as string) && !p.is_clearance
         );

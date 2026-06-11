@@ -63,7 +63,6 @@ export async function POST(req: Request) {
 
     const supabase = await createServerSupabase()
 
-    // Check for duplicate (case-insensitive)
     const { data: existing } = await supabase
       .from("product_aliases" as never)
       .select("id")

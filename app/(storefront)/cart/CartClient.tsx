@@ -111,10 +111,9 @@ export default function CartClient({ initialCart, isLoggedIn, siteSettings }: Ca
 
             const typedCoupon: CouponRow = data
 
-            // Check expiry - normalise bare date strings to end-of-day so coupon is valid the full day
             if (typedCoupon.expires_at) {
                 let expiryDate = new Date(typedCoupon.expires_at)
-                // If stored as bare date (no time component), treat as end-of-day UTC
+
                 if (!typedCoupon.expires_at.includes('T')) {
                     expiryDate = new Date(`${typedCoupon.expires_at}T23:59:59.999Z`)
                 }
@@ -124,7 +123,6 @@ export default function CartClient({ initialCart, isLoggedIn, siteSettings }: Ca
                 }
             }
 
-            // Check usage limit
             const usageLimit = typedCoupon.usage_limit ?? null
             const usedCount = typedCoupon.used_count ?? 0
             if (usageLimit !== null && usedCount >= usageLimit) {
@@ -132,7 +130,6 @@ export default function CartClient({ initialCart, isLoggedIn, siteSettings }: Ca
                 return
             }
 
-            // Check minimum order value
             if (typedCoupon.min_order_value && total < typedCoupon.min_order_value) {
                 toast.error(`Minimum order of ${formatPrice(typedCoupon.min_order_value)} required`)
                 return
@@ -165,7 +162,7 @@ export default function CartClient({ initialCart, isLoggedIn, siteSettings }: Ca
         toast.success('Coupon removed')
     }
 
-    // Sync local state to Zustand store
+
     const syncToStore = (updatedItems: CartItem[]) => {
         const count = updatedItems.reduce((sum, item) => sum + item.quantity, 0)
         setCartCount(count)

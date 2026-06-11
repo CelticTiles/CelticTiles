@@ -151,7 +151,7 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
       case "Enter":
         e.preventDefault();
         if (selectedIndex >= 0) {
-          // Check if selected item is a category
+
           if (selectedIndex < categories.length) {
             window.location.href = `/${categories[selectedIndex].slug}`;
           } else {
@@ -193,7 +193,7 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
               query.trim().length > 0 && suggestions.length > 0 && setIsOpen(true)
             }
             onInput={() => {
-              // Keep dropdown open as user types (after search results come back)
+
               if (query.trim().length > 0) {
                 setIsOpen(true);
               }

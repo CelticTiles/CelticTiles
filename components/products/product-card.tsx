@@ -65,7 +65,7 @@ export const ProductCard = memo(function ProductCard({ product, priority = false
     const [isUpdatingCart, setIsUpdatingCart] = useState(false)
     const [isTogglingWishlist, setIsTogglingWishlist] = useState(false)
 
-    // Sync refreshed cart to Zustand store
+
     const syncCart = useCallback(async () => {
         const { data: refreshedCart } = await fetchCartAction()
         if (refreshedCart) {
@@ -240,6 +240,9 @@ export const ProductCard = memo(function ProductCard({ product, priority = false
                 </h3>
                 <div className="flex items-center gap-2 mb-2">
                     <span className="font-bold text-lg text-tm-text">{formatPrice(product.price)}</span>
+                    {hasCalculator && (
+                        <span className="text-xs text-tm-text-muted font-medium">per m²</span>
+                    )}
                 </div>
                 
                 {/* Stock Badge */}

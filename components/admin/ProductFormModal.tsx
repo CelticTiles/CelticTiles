@@ -17,7 +17,7 @@ interface ProductFormModalProps {
   isOpen: boolean
   onClose: () => void
   onSave?: () => Promise<void> | void // Called after successful save to trigger refetch
-  product?: any | null // If null, we are in "Create" mode
+  product?: any | null
 }
 
 export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFormModalProps) {
@@ -49,7 +49,7 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
     panel_width: "",
     package_included: "",
     has_led: false,
-    is_clearance: false, // ✅ NEW: Clearance flag
+    is_clearance: false,
   })
 
   // Format categories with parent names for hierarchy display
@@ -63,7 +63,7 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
     }).sort((a, b) => a.displayName.localeCompare(b.displayName))
   }, [categories])
 
-  // Fetch existing images when editing a product
+
   useEffect(() => {
   async function fetchProductImages() {
     if (!product?.id) {
@@ -131,7 +131,7 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
             panel_width: product.panel_width || "",
             package_included: product.package_included || "",
             has_led: product.has_led || false,
-            is_clearance: product.is_clearance || false // ✅ Boolean from database
+            is_clearance: product.is_clearance || false
         })
     } else {
         // Create Mode (Reset)
@@ -155,7 +155,7 @@ export function ProductFormModal({ isOpen, onClose, onSave, product }: ProductFo
             panel_width: "",
             package_included: "",
             has_led: false,
-            is_clearance: false // ✅ Default to false for new products
+            is_clearance: false
         })
         setProductImages([])
         setCreatedProductId(null)

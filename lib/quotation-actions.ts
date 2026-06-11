@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "./loaders";
 import { sendAdminNewOrderNotification } from "./email";
 
-
 // ──────────────────────────────────────────────────────────────
 // Helper: returns an untyped Supabase query builder for tables
 // not yet auto-generated in the Database type.
@@ -215,7 +214,6 @@ export async function saveQuotation(
 export async function deleteQuotation(id: string) {
   const supabase = await getSupabase();
 
-  // Fetch quote number so we can clean up storage
   const { data: quote } = await supabase
     .from("quotations")
     .select("quote_number")
@@ -313,7 +311,6 @@ export async function convertQuotationToOrder(quotationId: string) {
     throw new Error(`Failed to create order: ${orderError.message}`);
   }
 
-  // ✅ Notify Admin about new order (non-blocking)
   sendAdminNewOrderNotification({
     customerName: newOrder.customer_name,
     orderNumber: newOrder.order_number,

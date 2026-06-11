@@ -51,7 +51,7 @@ export default function HomeClient({
     categories,
     wishlistProductIds
 }: HomeClientProps) {
-    // Sync server data to Zustand store ONLY on first mount (hydration safe)
+
     const { login, setWishlist, _hasHydrated } = useStore()
     const hasSyncedRef = useRef(false)
     const prevWishlistRef = useRef<string[]>([])
@@ -135,12 +135,12 @@ export default function HomeClient({
             wishlistProductIds.length !== prevWishlistRef.current.length ||
             wishlistProductIds.some((id, i) => id !== prevWishlistRef.current[i])
         
-        // Sync auth state from server (only if we have a user)
+
         if (session.userId && session.userName && session.userEmail) {
             login(session.userId, session.userName, session.userEmail, session.userRole)
         }
         
-        // Sync wishlist IDs only if different
+
         if (wishlistChanged) {
             setWishlist(wishlistProductIds)
             prevWishlistRef.current = wishlistProductIds

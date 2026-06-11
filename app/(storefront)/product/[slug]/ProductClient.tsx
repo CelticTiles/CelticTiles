@@ -63,9 +63,9 @@ export default function ProductClient({
     useState<CalculatorValues | null>(null);
   const [reviewsRefreshKey, setReviewsRefreshKey] = useState(0);
 
-  const { toggleWishlist } = useStore();  // ✅ Keep this for header wishlist count
+  const { toggleWishlist } = useStore();
   const { addToCart } = useCart();
-  const { addToWishlist, removeFromWishlist, isInWishlist: isInWishlistDB } = useWishlist();  // ✅ Use DB version
+  const { addToWishlist, removeFromWishlist, isInWishlist: isInWishlistDB } = useWishlist();
   const isLoggedIn = !!session.userId;
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const hasCalculator = !!product.pricePerSqm || !!product.coverage || !!product.sqm_per_box || isWallPanelProduct(product);
@@ -383,7 +383,7 @@ export default function ProductClient({
                       return;
                     }
                     
-                    // Check stock availability
+
                     const requestedQty = (product.sqm_per_box || isWallPanelProduct(product))
                       ? (calculatorValues?.boxes || 1)
                       : quantity;
@@ -454,7 +454,7 @@ export default function ProductClient({
                       <ShoppingCart className="h-5 w-5 mr-2" />
                       {product.sqm_per_box || isWallPanelProduct(product)
                         ? calculatorValues?.hasValues
-                          ? `Add ${calculatorValues.boxes || 0} ${isWallPanelProduct(product) ? 'Panel(s)' : 'Boxes'} to Cart`
+                          ? `Add ${calculatorValues.boxes || 0} Boxes to Cart`
                           : "Add to Cart"
                         : `Add ${quantity} to Basket`}
                     </>
@@ -470,12 +470,12 @@ export default function ProductClient({
                         return;
                       }
 
-                      const inWishlist = isInWishlistDB(product.id);  // ✅ Check DATABASE
+                      const inWishlist = isInWishlistDB(product.id);
                       if (inWishlist) {
-                        await removeFromWishlist(product.id);  // ✅ Remove from DB
+                        await removeFromWishlist(product.id);
                         toast.success("Removed from wishlist");
                       } else {
-                        await addToWishlist(product.id);  // ✅ Add to DB
+                        await addToWishlist(product.id);
                         toast.success("Added to wishlist!");
                       }
                     } catch (err) {
@@ -487,15 +487,15 @@ export default function ProductClient({
                     }
                   }}
                   className={`h-12 w-12 rounded-full flex items-center justify-center transition-all ${
-                    isInWishlistDB(product.id)  // ✅ Check DATABASE
+                    isInWishlistDB(product.id)
                       ? "neu-inset text-red-500"
                       : "neu-raised text-slate-700 hover:text-red-500"
                   }`}
-                  title={isInWishlistDB(product.id) ? "Remove from wishlist" : "Add to wishlist"}  // ✅ Check DATABASE
+                  title={isInWishlistDB(product.id) ? "Remove from wishlist" : "Add to wishlist"}
                 >
                   <Heart
                     className={`h-5 w-5 transition-all ${
-                      isInWishlistDB(product.id)  // ✅ Check DATABASE
+                      isInWishlistDB(product.id)
                         ? "fill-red-500"
                         : ""
                     }`}

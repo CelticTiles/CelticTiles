@@ -127,7 +127,6 @@ export async function sendOrderStatusEmail({
       attachments,
     })
 
-    console.log(`[Email] ✅ Sent "${content.subject}" to ${customerEmail} for order ${orderNumber}`)
     return { success: true }
   } catch (err: any) {
     console.error(`[Email] ❌ Failed to send email for order ${orderNumber}:`, err.message)
@@ -167,7 +166,6 @@ export async function sendAdminNewOrderNotification({
       html,
     })
 
-    console.log(`[Email] 🔔 Admin notification sent for order ${orderNumber}`)
     return { success: true }
   } catch (err: any) {
     console.error(`[Email] ❌ Failed to send admin notification for ${orderNumber}:`, err.message)
@@ -223,7 +221,6 @@ export async function sendTicketAssignmentEmail({
       html,
     })
 
-    console.log(`[Email] ✅ Sent ticket assignment to ${assigneeEmail} for "${ticketTitle}"`)
     return { success: true }
   } catch (err: any) {
     console.error(`[Email] ❌ Failed to send ticket assignment to ${assigneeEmail}:`, err.message)

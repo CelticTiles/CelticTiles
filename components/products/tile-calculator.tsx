@@ -198,7 +198,7 @@ export function TileCalculator({
               const checked = !includeWastage;
               setIncludeWastage(checked);
 
-              // If results are already showing, recalculate immediately
+
               if (hasCalculated) {
                 const w = parseFloat(width);
                 const l = parseFloat(length);
@@ -253,13 +253,13 @@ export function TileCalculator({
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="font-semibold text-slate-700">
-                {isWallPanel ? "Panels needed:" : "Boxes:"}
+                Boxes:
               </span>
               <span className="font-bold text-slate-900">{calculatorValues.boxes}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="font-semibold text-slate-700">
-                {isWallPanel ? "Coverage per Panel:" : "Coverage per Box:"}
+                Coverage per Box:
               </span>
               <span className="font-bold text-slate-900">{coveragePerBox}m²</span>
             </div>

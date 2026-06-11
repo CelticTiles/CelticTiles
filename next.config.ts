@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // ✅ Disable React Strict Mode
+
   reactStrictMode: false,
 
   // Hide Next.js dev indicator
@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
 
   // Experimental optimizations
   experimental: {
-    // Enable optimized package imports
+
     optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion'],
   },
   
@@ -111,7 +111,7 @@ const nextConfig: NextConfig = {
       },
     ]
   },
-  // Keep tesseract.js out of the Next.js server bundle.
+
   // It uses web-streams-polyfill which conflicts with Node 20 native streams
   // when bundled. Loading it at runtime via require() in the API route is fine.
   webpack(config, { isServer }) {

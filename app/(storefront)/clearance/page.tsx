@@ -7,12 +7,12 @@ export const revalidate = 60
 export default async function ClearancePage() {
   const supabase = await createServerSupabase();
 
-  // ✅ FIXED: Fetch only clearance products (is_clearance = true)
+
   const { data } = await supabase
     .from("products")
     .select("id, name, slug, price, image, stock, material, status, sqm_per_box, coverage, panel_length, panel_width")
     .eq("status", "active")
-    .eq("is_clearance", true) // ✅ Filter by boolean flag
+    .eq("is_clearance", true)
     .order("price", { ascending: true });
   
   const clearanceProducts = (data || []) as any[];

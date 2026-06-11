@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get('stripe-signature')
 
     // Forward to Supabase Edge Function
-    // ✅ Must include Authorization header — Supabase Edge Functions require it
+
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-webhook`,
       {

@@ -19,7 +19,7 @@ function normalizeItems(raw: Json, skuMap: Record<string, string>) {
         quantity: Number(i.quantity ?? 0),
         unit_price: Number(i.unit_price ?? i.price ?? 0),
         subtotal: Number(i.subtotal ?? i.amount ?? Number(i.unit_price ?? 0) * Number(i.quantity ?? 0)),
-        // Use undefined (not 0) when vat_rate is absent — lets the PDF generator apply its 23% fallback
+
         vat_rate: (parsedVatRate !== undefined && parsedVatRate > 0) ? parsedVatRate : undefined,
         // Resolve SKU: prefer stored sku field, then look up from products table via UUID
         sku: i.sku || i.assigned_code || skuMap[String(i.product_id ?? "")] || undefined,

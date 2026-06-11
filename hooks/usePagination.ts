@@ -15,7 +15,6 @@ export function usePagination({
 
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage))
 
-  // Keep page in bounds without setting state during render.
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages)

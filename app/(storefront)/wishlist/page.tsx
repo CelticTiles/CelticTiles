@@ -39,7 +39,7 @@ export default async function WishlistPage() {
         )
     }
     
-    // User is logged in - fetch wishlist items
+
     const supabase = await createServerSupabase()
     const { data: wishlistItems } = await supabase
         .from('wishlist_items')
