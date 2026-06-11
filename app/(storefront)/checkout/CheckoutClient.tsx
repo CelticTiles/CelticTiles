@@ -551,7 +551,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                                         <Input required={!isAdminOrSales} placeholder="Dublin" name="state" value={formData.state} onChange={handleInputChange} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-2">Postal Code/EIRCode {!isAdminOrSales && '*'}</label>
+                                        <label className="block text-sm font-medium mb-2">Eircode /Postcode {!isAdminOrSales && '*'}</label>
                                         <Input required={!isAdminOrSales} placeholder="D02 XY12" name="pincode" value={formData.pincode} onChange={handleInputChange} />
                                     </div>
                                 </div>

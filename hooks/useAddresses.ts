@@ -141,12 +141,64 @@ export function useAddresses(userId: string | null) {
     }
   }
 
+  const setDefault = async (id: string) => {
+    try {
+      if (!userId) throw new Error("User not authenticated")
+
+      // First clear all defaults for this user
+      const { error: clearError } = await supabase
+        .from('customer_addresses')
+        .update({ is_default: false })
+        .eq('user_id', userId)
+
+      if (clearError) throw clearError
+
+      // Then set the new default
+      const { error: setError } = await supabase
+        .from('customer_addresses')
+        .update({ is_default: true })
+        .eq('id', id)
+        .eq('user_id', userId)
+
+      if (setError) throw setError
+
+      await fetchAddresses()
+    } catch (err: unknown) {
+      console.error('Error setting default address:', err)
+      throw err
+    }
+  }
+
+  const updateAddress = async (
+    id: string,
+    data: Omit<UserAddress, "id" | "user_id" | "created_at" | "updated_at">
+  ) => {
+    try {
+      if (!userId) throw new Error("User not authenticated")
+
+      const { error: updateError } = await supabase
+        .from('customer_addresses')
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('user_id', userId)
+
+      if (updateError) throw updateError
+
+      await fetchAddresses()
+    } catch (err: unknown) {
+      console.error('Error updating address:', err)
+      throw err
+    }
+  }
+
   return {
     addresses,
     isLoading,
     error,
     addAddress,
     deleteAddress,
+    setDefault,
+    updateAddress,
     refetch: fetchAddresses
   }
 }

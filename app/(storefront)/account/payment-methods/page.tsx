@@ -10,11 +10,13 @@ export default async function PaymentMethodsPage() {
     }
 
     return (
-        <div className="bg-white p-12 rounded-lg shadow-sm border border-tm-border text-center">
-            <CreditCard className="h-16 w-16 mx-auto mb-4 text-tm-text-muted opacity-20" />
-            <h1 className="text-3xl font-bold text-tm-text mb-4">Payment Methods</h1>
-            <p className="text-tm-text-muted text-lg">
-                Safe and secure payment management is coming soon. You will be able to save your card details for faster checkout.
+        <div className="p-12 rounded-[2rem] neu-raised bg-[#E5E9F0] border-none text-center h-full flex flex-col items-center justify-center min-h-[400px]">
+            <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                <CreditCard className="h-10 w-10 text-primary opacity-60" />
+            </div>
+            <h1 className="text-3xl font-bold text-slate-800 mb-4">Payment Methods</h1>
+            <p className="text-slate-500 font-medium text-lg max-w-md mx-auto">
+                Safe and secure payment management is coming soon. You will be able to save your card details securely for faster checkout.
             </p>
         </div>
     )

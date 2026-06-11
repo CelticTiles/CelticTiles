@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { getServerSession } from "@/lib/loaders"
+import { sendOrderStatusEmail } from "@/lib/email"
 import type { Database } from "@/supabase/database.types"
 
 type UpdateStatusBody = {
@@ -16,7 +17,7 @@ type StatusHistoryEntry = {
   updated_by: string
 }
 
-type OrderStatusHistoryRow = Pick<Database["public"]["Tables"]["orders"]["Row"], "status_history">
+type OrderStatusHistoryRow = Pick<Database["public"]["Tables"]["orders"]["Row"], "status_history" | "customer_name" | "customer_email" | "order_number" | "total">
 type OrderStatusUpdatePayload = Database["public"]["Tables"]["orders"]["Update"] & {
   status_history: StatusHistoryEntry[]
 }
@@ -45,9 +46,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const supabase = await createServerSupabase()
+
+    // Fetch current order including customer details for the email
     const { data: currentOrder, error: fetchError } = await supabase
       .from("orders")
-      .select("status_history")
+      .select("status_history, customer_name, customer_email, order_number, total")
       .eq("id", id)
       .single()
 
@@ -55,9 +58,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: fetchError.message }, { status: 500 })
     }
 
-    const existingHistory = (Array.isArray((currentOrder as OrderStatusHistoryRow | null)?.status_history)
-      ? ((currentOrder as OrderStatusHistoryRow).status_history as StatusHistoryEntry[])
+    const typedOrder = currentOrder as OrderStatusHistoryRow | null
+
+    const existingHistory = (Array.isArray(typedOrder?.status_history)
+      ? (typedOrder.status_history as StatusHistoryEntry[])
       : [])
+
     const updatedHistory = [
       ...existingHistory,
       {
@@ -83,10 +89,22 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
+    // ── Email relay: notify customer of status change ────────────────────
+    if (typedOrder?.customer_email && typedOrder?.customer_name && typedOrder?.order_number) {
+      // Fire-and-forget — don't block the response on email delivery
+      sendOrderStatusEmail({
+        customerName: typedOrder.customer_name,
+        customerEmail: typedOrder.customer_email,
+        orderNumber: typedOrder.order_number,
+        status,
+        total: typedOrder.total ?? 0,
+      }).catch(err => {
+        console.error(`[OrderStatus] Email relay failed for order ${id}:`, err)
+      })
+    }
+
     return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json({ error: "Failed to update order status" }, { status: 500 })
   }
 }
-
-

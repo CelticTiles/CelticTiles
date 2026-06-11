@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getServerSession } from "@/lib/loaders"
+import { createServerSupabase } from "@/lib/supabase/server"
 import { AccountSidebar } from "@/components/account/AccountSidebar"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -12,6 +13,19 @@ export default async function AccountLayout({
 
     if (!session.userId) {
         redirect("/login")
+    }
+
+    // Count total notification entries from all order status_history
+    const supabase = await createServerSupabase()
+    const { data: orders } = await supabase
+        .from("orders")
+        .select("status_history")
+        .eq("customer_id", session.userId)
+
+    let notificationCount = 0
+    for (const order of (orders ?? [])) {
+        const history = Array.isArray(order.status_history) ? order.status_history : []
+        notificationCount += history.filter((e: { status?: string; timestamp?: string }) => e.status && e.timestamp).length
     }
 
     return (
@@ -27,7 +41,10 @@ export default async function AccountLayout({
                         <div className="lg:col-span-1">
                             <Card className="border-none neu-raised bg-[#E5E9F0] rounded-[2rem] overflow-hidden sticky top-32">
                                 <CardContent className="p-4">
-                                    <AccountSidebar />
+                                    <AccountSidebar
+                                        notificationCount={notificationCount}
+                                        userId={session.userId}
+                                    />
                                 </CardContent>
                             </Card>
                         </div>
