@@ -39,6 +39,7 @@ interface CheckoutClientProps {
 type CreatedOrder = Pick<{ order_number: string }, "order_number">
 
 export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses, initialProfile, userId, userEmail, siteSettings }: CheckoutClientProps) {
+    const isAdminOrSales = userRole === 'admin' || userRole === 'sales'
     const { cartItems, isLoading: cartLoading, clearCart, getCartTotal } = useCart()
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -124,7 +125,6 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
 
     // Auto-select default (or first) saved address on mount — skip in quote mode or if admin/sales (walk-in order scenario)
     useEffect(() => {
-        const isAdminOrSales = userRole === 'admin' || userRole === 'sales'
         if (isQuoteMode || isAdminOrSales || addresses.length === 0) return
         const defaultAddress = addresses.find(a => a.is_default) ?? addresses[0]
         handleAddressSelection(defaultAddress.id)
@@ -180,7 +180,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
             } = formData;
 
             // Validate required fields
-            if (!full_name || !email || !phone || !street || !city || !state || !pincode) {
+            if (!full_name || !email || (!isAdminOrSales && (!phone || !street || !city || !state || !pincode))) {
                 clearTimeout(timeoutId)
 
                 toast.error("Please fill in all required fields")
@@ -450,15 +450,15 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                                     <Input type="email" required placeholder="john@example.com" name="email" value={formData.email} onChange={handleInputChange} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Phone *</label>
-                                    <Input type="tel" required placeholder="+353 1 234 5678" name="phone" value={formData.phone} onChange={handleInputChange} />
+                                    <label className="block text-sm font-medium mb-2">Phone {!isAdminOrSales && '*'}</label>
+                                    <Input type="tel" required={!isAdminOrSales} placeholder="+353 1 234 5678" name="phone" value={formData.phone} onChange={handleInputChange} />
                                 </div>
 
                             </CardContent>
                         </Card>
 
                         {/* Saved Addresses Section */}
-                        {!isQuoteMode && addresses.length > 0 && (
+                        {!isQuoteMode && !isAdminOrSales && addresses.length > 0 && (
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2 text-base">
@@ -538,21 +538,21 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Street Address *</label>
-                                    <Input required placeholder="123 Main Street" name="street" value={formData.street} onChange={handleInputChange} />
+                                    <label className="block text-sm font-medium mb-2">Street Address {!isAdminOrSales && '*'}</label>
+                                    <Input required={!isAdminOrSales} placeholder="123 Main Street" name="street" value={formData.street} onChange={handleInputChange} />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium mb-2">City *</label>
-                                        <Input required placeholder="Dublin" name="city" value={formData.city} onChange={handleInputChange} />
+                                        <label className="block text-sm font-medium mb-2">City {!isAdminOrSales && '*'}</label>
+                                        <Input required={!isAdminOrSales} placeholder="Dublin" name="city" value={formData.city} onChange={handleInputChange} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-2">County/State *</label>
-                                        <Input required placeholder="Dublin" name="state" value={formData.state} onChange={handleInputChange} />
+                                        <label className="block text-sm font-medium mb-2">County/State {!isAdminOrSales && '*'}</label>
+                                        <Input required={!isAdminOrSales} placeholder="Dublin" name="state" value={formData.state} onChange={handleInputChange} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium mb-2">Postal Code *</label>
-                                        <Input required placeholder="D02 XY12" name="pincode" value={formData.pincode} onChange={handleInputChange} />
+                                        <label className="block text-sm font-medium mb-2">Postal Code {!isAdminOrSales && '*'}</label>
+                                        <Input required={!isAdminOrSales} placeholder="D02 XY12" name="pincode" value={formData.pincode} onChange={handleInputChange} />
                                     </div>
                                 </div>
                             </CardContent>

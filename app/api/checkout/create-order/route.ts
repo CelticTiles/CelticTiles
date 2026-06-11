@@ -105,11 +105,12 @@ export async function POST(request: NextRequest) {
     const pincode = cleanText(body.deliveryAddress?.pincode, 40)
     const country = cleanText(body.deliveryAddress?.country, 80) || "Ireland"
 
-    if (!fullName || !phone || !street || !city || !state || !pincode) {
+    const isAdminOrSales = session.userRole === "admin" || session.userRole === "sales"
+    if (!fullName || (!isAdminOrSales && (!phone || !street || !city || !state || !pincode))) {
       return NextResponse.json({ error: "Missing required checkout fields" }, { status: 400 })
     }
 
-    const authoritativeEmail = session.userEmail?.toLowerCase() || emailInput
+    const authoritativeEmail = emailInput || session.userEmail?.toLowerCase()
     if (!authoritativeEmail || !EMAIL_REGEX.test(authoritativeEmail)) {
       return NextResponse.json({ error: "Valid email is required" }, { status: 400 })
     }
