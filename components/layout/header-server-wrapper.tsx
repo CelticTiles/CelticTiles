@@ -26,7 +26,7 @@ export async function HeaderServerWrapper({ categories: preloadedCategories }: H
   const categories = preloadedCategories ?? (await getNavData()).categories
 
   // Cart and wishlist depend on session, so fetch after
-  const [{ cartCount }, { wishlistCount }] = await Promise.all([
+  const [{ cartCount }, { wishlist }] = await Promise.all([
     getCartData(session.userId),
     getWishlistData(session.userId)
   ])
@@ -37,7 +37,7 @@ export async function HeaderServerWrapper({ categories: preloadedCategories }: H
       categories={categories}
       products={navProducts}
       initialCartCount={cartCount}
-      initialWishlistCount={wishlistCount}
+      initialWishlistProductIds={wishlist.map(w => w.product_id)}
     />
   )
 }

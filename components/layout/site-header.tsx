@@ -69,7 +69,7 @@ function RoleBadge({ role }: { role: string }) {
 export interface SiteHeaderProps {
   session?: ServerSession | null;
   initialCartCount?: number;
-  initialWishlistCount?: number;
+  initialWishlistProductIds?: string[];
   categories?: CategoryWithChildren[];
   products?: Product[];
 }
@@ -77,7 +77,7 @@ export interface SiteHeaderProps {
 export function SiteHeader({ 
   session,
   initialCartCount = 0, 
-  initialWishlistCount = 0,
+  initialWishlistProductIds = [],
   categories = [],
   products = []
 }: SiteHeaderProps) {
@@ -86,8 +86,7 @@ export function SiteHeader({
   const logout = useStore((state) => state.logout);
   const hasHydrated = useStore((state) => state._hasHydrated);
   const wishlistCountState = useStore((state) => state.wishlist.length);
-
-  
+  const setWishlist = useStore((state) => state.setWishlist);
 
   const user = session?.userId ? {
     id: session.userId,
@@ -103,7 +102,7 @@ export function SiteHeader({
   
 
   const cartCount = useStore((state) => state.cartCount);
-  const wishlistCount = hasHydrated ? wishlistCountState : initialWishlistCount;
+  const wishlistCount = hasHydrated ? wishlistCountState : initialWishlistProductIds.length;
   
   const [isDimensionsModalOpen, setIsDimensionsModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -126,6 +125,13 @@ export function SiteHeader({
   useEffect(() => {
     setIsProfileOpen(false);
   }, [pathname]);
+
+  // Sync server-fetched wishlist with client store on mount
+  useEffect(() => {
+    if (session?.userId && initialWishlistProductIds.length >= 0) {
+      setWishlist(initialWishlistProductIds);
+    }
+  }, [session?.userId, initialWishlistProductIds, setWishlist]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
