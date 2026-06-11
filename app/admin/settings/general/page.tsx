@@ -38,24 +38,10 @@ export default function GeneralSettingsPage() {
   const fetchSettings = async () => {
     setIsLoadingSettings(true)
     try {
-      // Add a 5-second timeout so the page never hangs forever
-      const timeout = new Promise<null>((resolve) =>
-        setTimeout(() => resolve(null), 5000)
-      )
-      const query = (supabase as any)
+      const { data, error } = await (supabase as any)
         .from('site_settings')
         .select('*')
         .single()
-
-      const result = await Promise.race([query, timeout])
-
-      // timeout fired — just show defaults
-      if (result === null) {
-        console.warn('site_settings query timed out — using defaults')
-        return
-      }
-
-      const { data, error } = result as any
 
       // PGRST116 = no rows found — not an error, just use defaults
       if (error && error.code !== 'PGRST116') {
@@ -95,6 +81,7 @@ export default function GeneralSettingsPage() {
           store_address: storeAddress,
           updated_at: new Date().toISOString()
         })
+        .select()
 
       if (error) throw error
       toast.success('Store information saved')
@@ -117,6 +104,7 @@ export default function GeneralSettingsPage() {
           free_shipping_threshold: freeShippingThreshold,
           updated_at: new Date().toISOString()
         })
+        .select()
 
       if (error) throw error
       toast.success('Currency settings saved')
@@ -139,6 +127,7 @@ export default function GeneralSettingsPage() {
           customer_reviews_notifications: customerReviews,
           updated_at: new Date().toISOString()
         })
+        .select()
 
       if (error) throw error
       toast.success('Notification settings saved')
