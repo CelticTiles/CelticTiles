@@ -42,43 +42,46 @@ export function useAddresses(userId: string | null) {
   }, [])
 
   const fetchAddresses = useCallback(async () => {
-    const fetchId = ++fetchIdRef.current
-
     if (!userId) {
-      if (!mountedRef.current) return
-      setAddresses([])
-      setIsLoading(false)
+      if (mountedRef.current) {
+        setAddresses([])
+        setIsLoading(false)
+      }
       return
     }
 
     try {
-      if (!mountedRef.current) return
-      setIsLoading(true)
-      setError(null)
+      if (mountedRef.current) {
+        setIsLoading(true)
+        setError(null)
+      }
 
-      const { data, error: fetchError } = await (supabase
-        .from("customer_addresses"))
+      const { data, error: fetchError } = await supabase
+        .from("customer_addresses")
         .select("*")
         .eq("user_id", userId)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false })
-
-      if (!mountedRef.current || fetchId !== fetchIdRef.current) return
 
       if (fetchError) {
         console.error("[useAddresses] Fetch error:", fetchError.message)
         throw fetchError
       }
 
-      const typedData = (data ?? []) as UserAddress[]
-      setAddresses(dedupeAddresses(typedData))
+      if (mountedRef.current) {
+        const typedData = (data ?? []) as UserAddress[]
+        setAddresses(dedupeAddresses(typedData))
+      }
     } catch (err: unknown) {
-      if (!mountedRef.current || fetchId !== fetchIdRef.current) return
-      const message = err instanceof Error ? err.message : "Failed to fetch addresses"
-      console.error("[useAddresses] Error:", message)
-      setError(message)
+      if (mountedRef.current) {
+        const message = err instanceof Error ? err.message : "Failed to fetch addresses"
+        console.error("[useAddresses] Error:", message)
+        setError(message)
+      }
     } finally {
-      if (mountedRef.current && fetchId === fetchIdRef.current) setIsLoading(false)
+      if (mountedRef.current) {
+        setIsLoading(false)
+      }
     }
   }, [dedupeAddresses, supabase, userId])
 
