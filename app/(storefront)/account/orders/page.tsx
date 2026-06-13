@@ -41,6 +41,7 @@ export default async function OrdersPage() {
             invoice_file_id
         `)
         .eq("customer_id", session.userId)
+        .neq("status", "Draft")
         .order("created_at", { ascending: false })
 
     return (

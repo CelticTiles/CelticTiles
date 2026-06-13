@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabase/server"
-import { sendOrderStatusEmail } from "@/lib/email"
+import { sendOrderStatusEmail, sendAdminNewOrderNotification } from "@/lib/email"
 
 import { getServerSession } from "@/lib/loaders"
 import type { Database } from "@/lib/supabase-types"
@@ -237,6 +237,13 @@ export async function POST(request: NextRequest) {
       .from("orders")
       .update({ email_sent: true, updated_at: new Date().toISOString() })
       .eq("id", typedOrder.id)
+
+    // Notify Admin now that order is confirmed
+    void sendAdminNewOrderNotification({
+      customerName: typedOrder.customer_name,
+      orderNumber: typedOrder.order_number,
+      total: typedOrder.total,
+    }).catch(err => console.error('[Email] Admin notification failed:', err))
 
     return NextResponse.json({
       success: true,

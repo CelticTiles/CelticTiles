@@ -59,7 +59,7 @@ export default async function OrdersListPage() {
   // }
 
   const { data: orders, error } = await query
-    .or("payment_method.neq.card,payment_status.neq.Pending")
+    .neq("status", "Draft")
     .order("created_at", { ascending: false })
     .returns<OrderRow[]>()
 

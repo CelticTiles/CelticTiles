@@ -200,24 +200,22 @@ export async function POST(request: NextRequest) {
         .neq("stripe_session_id", stripeSessionId)
     }
 
-    const initialStatus = isOfflinePayment ? "Confirmed" : "Pending"
+    const initialStatus = isOfflinePayment ? "Confirmed" : "Draft"
     const initialPaymentStatus = isOfflinePayment ? "Paid" : "Pending"
 
-    const statusHistory: StatusHistoryEntry[] = [
+    const statusHistory: StatusHistoryEntry[] = isOfflinePayment ? [
       {
         status: initialStatus,
         timestamp: new Date().toISOString(),
         updated_by: session.userName || "system",
         note:
-      paymentMethod === "offline_cash"
+          paymentMethod === "offline_cash"
             ? "Cash payment - paid in store"
             : paymentMethod === "card_instore"
             ? "Card payment - paid via in-store machine"
-            : paymentMethod === "bank_transfer"
-            ? "Bank transfer - payment received"
-            : "Card payment - awaiting verification",
+            : "Bank transfer - payment received"
       },
-    ]
+    ] : []
 
     const orderPayload: OrderInsertWithStripe = {
       user_id: session.userId,
@@ -260,11 +258,13 @@ export async function POST(request: NextRequest) {
     }
     
 
-    sendAdminNewOrderNotification({
-      customerName: fullName,
-      orderNumber: orderNumber,
-      total: snapshot.total,
-    }).catch(err => console.error('[Email] Admin notification failed:', err))
+    if (initialStatus !== "Draft") {
+      sendAdminNewOrderNotification({
+        customerName: fullName,
+        orderNumber: orderNumber,
+        total: snapshot.total,
+      }).catch(err => console.error('[Email] Admin notification failed:', err))
+    }
 
     if (isQuoteMode && (body as any).quoteId) {
       const quoteId = (body as any).quoteId
