@@ -128,6 +128,11 @@ export async function DELETE(req: Request) {
     const { id } = await req.json()
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
     const supabase = await createServerSupabase()
+    
+    // Delete related records first to prevent foreign key constraint violations
+    await (supabase as any).from('activity_logs').delete().eq('lead_id', id)
+    await (supabase as any).from('quotations').delete().eq('lead_id', id)
+
     const { error } = await (supabase as any).from('leads').delete().eq('id', id)
     if (error) throw new Error(error.message)
     return NextResponse.json({ success: true })
