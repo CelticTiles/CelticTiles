@@ -127,7 +127,7 @@ export default async function OrderSuccessPage({ searchParams }: Props) {
             <Link href="/">Continue Shopping</Link>
           </Button>
           <Button asChild variant="outline" size="lg" className="w-full">
-            <Link href="/account/orders">View Orders</Link>
+            <Link href={session.userRole === 'admin' ? '/admin/orders/list' : '/account/orders'}>View Orders</Link>
           </Button>
         </div>
       </div>

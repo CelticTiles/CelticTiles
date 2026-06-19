@@ -218,20 +218,24 @@ function drawFooter(doc: jsPDF, order: InvoiceOrderData, pageNum: number, totalP
       itemsVat += vat
     })
 
-    const total = itemsTotal + safeNumber(order.shipping_fee) - safeNumber(order.discount)
+    const total = safeNumber(order.total)
     const vatAmount = itemsVat
     const subtotal = itemsTotal - itemsVat
+
+    let derivedDiscount = itemsTotal + safeNumber(order.shipping_fee) - total
+    derivedDiscount = Math.round(derivedDiscount * 100) / 100
+    const finalDiscount = derivedDiscount > 0 ? derivedDiscount : safeNumber(order.discount)
 
     const lines: [string, string][] = []
     lines.push(["Subtotal", `€ ${subtotal.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
     lines.push(["VAT Total", `€ ${vatAmount.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
-    if (safeNumber(order.discount) > 0) {
-      lines.push(["Discount", `-€ ${safeNumber(order.discount).toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+    if (finalDiscount > 0) {
+      lines.push(["Discount", `-€ ${finalDiscount.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
     }
     if (safeNumber(order.shipping_fee) > 0) {
       lines.push(["Shipping", `€ ${safeNumber(order.shipping_fee).toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
     }
-    lines.push(["Total", `€ ${total.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+    lines.push(["Total", `€ ${total.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`] )
 
     let ly = fTop + 6
     for (const [label, value] of lines) {

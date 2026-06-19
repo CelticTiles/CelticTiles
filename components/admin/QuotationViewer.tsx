@@ -12,6 +12,11 @@ interface QuotationViewerProps {
 }
 
 export function QuotationViewer({ quotation }: QuotationViewerProps) {
+  const itemsTotal = quotation.items.reduce((sum, item: any) => sum + (item.type === "product" ? (item.amount || 0) : 0), 0);
+  const quoteDiscountAmount = quotation.discount_enabled && quotation.discount_percentage
+    ? itemsTotal * (quotation.discount_percentage / 100)
+    : 0;
+
   const handleConvertToSale = () => {
     // Store quote data in sessionStorage for /quotecart page
     const quoteData = {
@@ -23,9 +28,7 @@ export function QuotationViewer({ quotation }: QuotationViewerProps) {
       items: quotation.items,
       subtotal: quotation.subtotal,
       total: quotation.total,
-      quoteDiscount: quotation.discount_enabled && quotation.discount_percentage
-        ? quotation.subtotal * ((quotation.discount_percentage ?? 0) / 100)
-        : 0,
+      quoteDiscount: quoteDiscountAmount,
       quoteDiscountPercentage: quotation.discount_percentage ?? 0,
       deliveryCollection: quotation.delivery_collection,
       deliveryAddress: quotation.delivery_collection === "Delivery" ? {
@@ -213,11 +216,7 @@ export function QuotationViewer({ quotation }: QuotationViewerProps) {
                 <div className="flex justify-between text-sm text-red-600">
                   <span>Discount ({quotation.discount_percentage ?? 0}%)</span>
                   <span className="font-semibold">
-                    -€
-                    {(
-                      quotation.subtotal *
-                      ((quotation.discount_percentage ?? 0) / 100)
-                    ).toFixed(2)}
+                    -€{quoteDiscountAmount.toFixed(2)}
                   </span>
                 </div>
               )}
