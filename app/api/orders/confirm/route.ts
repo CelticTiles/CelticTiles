@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
+import Stripe from "stripe"
 import { createServerSupabase } from "@/lib/supabase/server"
 import { sendOrderStatusEmail, sendAdminNewOrderNotification } from "@/lib/email"
 
 import { getServerSession } from "@/lib/loaders"
 import type { Database } from "@/lib/supabase-types"
 import { generateOrderInvoicePdfBuffer } from "@/lib/order-invoice-pdf"
+import { deductStockForOrderItems, incrementCouponUsage } from "@/lib/secure-checkout"
 import type { Json } from "@/supabase/database.types"
 
 type ConfirmOrderRequestBody = { orderNumber?: string }
@@ -20,6 +22,10 @@ type ConfirmOrderRow = Pick<
   | "customer_id"
   | "payment_method"
   | "payment_status"
+  | "status"
+  | "status_history"
+  | "stripe_session_id"
+  | "coupon_code"
   | "created_at"
   | "items"
   | "delivery_address"
@@ -164,6 +170,95 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 /**
+ * Safety net for the card-payment flow. A card order is created as
+ * `status: "Draft" / payment_status: "Pending"` and is normally promoted to
+ * `Confirmed / Paid` by the Stripe webhook (Supabase edge function). Because the
+ * admin Orders list hides Draft rows, a paid sale whose webhook never reached us
+ * stays invisible. The order-success page calls this endpoint once the buyer
+ * returns from a *successful* Stripe payment, so we re-verify the payment with
+ * Stripe and promote the order ourselves — making the sale appear in Orders even
+ * if the webhook silently failed.
+ */
+async function promotePaidCardOrderIfNeeded(
+  order: ConfirmOrderRow,
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>
+) {
+  // Offline / in-store sales are already Confirmed at creation; only un-promoted
+  // card orders are candidates. If the webhook already ran, status !== "Draft"
+  // and we skip.
+  if (order.payment_method !== "card" || order.status !== "Draft") return
+
+  const stripeSessionId = (order as { stripe_session_id?: string | null }).stripe_session_id
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+  if (!stripeSessionId || !stripeSecretKey) return
+
+  // Never trust the redirect alone — confirm with Stripe that the session was
+  // actually paid before promoting anything.
+  let paid = false
+  try {
+    const stripe = new Stripe(stripeSecretKey)
+    const stripeSession = await stripe.checkout.sessions.retrieve(stripeSessionId)
+    paid = stripeSession.payment_status === "paid"
+  } catch (err) {
+    console.error("[orders/confirm] Stripe verification failed:", err)
+    return
+  }
+  if (!paid) return
+
+  const existingHistory = Array.isArray(order.status_history) ? order.status_history : []
+  const historyEntry = {
+    status: "Confirmed",
+    timestamp: new Date().toISOString(),
+    updated_by: "system",
+    note: "Card payment confirmed on order success (Stripe verified)",
+  }
+
+  // Atomic guard: `.eq("status", "Draft")` means only the first writer — this
+  // request OR the webhook — flips the row out of Draft. The loser updates zero
+  // rows and skips the side effects below, so stock is never deducted twice.
+  const { data: promoted } = await supabase
+    .from("orders")
+    .update({
+      status: "Confirmed",
+      payment_status: "Paid",
+      status_history: [...existingHistory, historyEntry] as Json,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", order.id)
+    .eq("status", "Draft")
+    .select("id")
+
+  if (!promoted || promoted.length === 0) return
+
+  // We won the transition — perform the same follow-up work the webhook would
+  // have done for a paid card sale.
+  const items = Array.isArray(order.items)
+    ? (order.items as unknown[]).map((raw) => {
+        const i = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+        return { product_id: String(i.product_id ?? ""), quantity: Number(i.quantity ?? 0) }
+      })
+    : []
+
+  if (items.length > 0) {
+    await deductStockForOrderItems(supabase, items).catch((err) =>
+      console.error("[orders/confirm] stock deduction failed:", err)
+    )
+  }
+
+  if (order.coupon_code) {
+    await incrementCouponUsage(supabase, order.coupon_code).catch((err) =>
+      console.error("[orders/confirm] coupon increment failed:", err)
+    )
+  }
+
+  void sendAdminNewOrderNotification({
+    customerName: order.customer_name,
+    orderNumber: order.order_number,
+    total: order.total,
+  }).catch((err) => console.error("[orders/confirm] admin notification failed:", err))
+}
+
+/**
  * POST /api/orders/confirm
  * Sends "order placed" email for the authenticated user's order.
  */
@@ -184,7 +279,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabase()
     const { data: order, error: fetchError } = await supabase
       .from("orders")
-      .select("id, order_number, total, customer_name, customer_email, customer_phone, user_id, customer_id, payment_method, payment_status, created_at, items, delivery_address, subtotal, tax, discount, shipping_fee, invoice_file_id, email_sent, paid_amount, source")
+      .select("id, order_number, total, customer_name, customer_email, customer_phone, user_id, customer_id, payment_method, payment_status, status, status_history, stripe_session_id, coupon_code, created_at, items, delivery_address, subtotal, tax, discount, shipping_fee, invoice_file_id, email_sent, paid_amount, source")
       .eq("order_number", orderNumber)
       .eq("user_id", session.userId)
       .maybeSingle()
@@ -194,11 +289,28 @@ export async function POST(request: NextRequest) {
     }
     const typedOrder = order as any
 
-    if (!typedOrder.customer_email) {
-      return NextResponse.json({ error: "No customer email" }, { status: 400 })
-    }
+    // Promote a paid-but-stuck card order out of "Draft" so the sale shows up in
+    // the admin Orders list even when the Stripe webhook never reached us. Safe
+    // to run on every confirm: it no-ops unless this is an unpromoted card order
+    // that Stripe reports as paid.
+    await promotePaidCardOrderIfNeeded(typedOrder, supabase)
 
+    // Always generate the invoice from the order record (customer name, items,
+    // totals) — it does not depend on a customer email. A sale converted from a
+    // CRM quote / walk-in may legitimately have no email now that email is
+    // optional, so the invoice must still be produced rather than blocking here.
     const invoice = await ensureInvoicePdf(typedOrder, supabase)
+
+    // No email on file: the sale and its invoice are complete, there is simply
+    // nobody to send the confirmation to. Return success so the invoice still
+    // downloads on the success screen.
+    if (!typedOrder.customer_email) {
+      return NextResponse.json({
+        success: true,
+        email: { sent: false, skipped: "no-customer-email" },
+        invoice: { path: invoice.path },
+      })
+    }
 
     if (typedOrder.email_sent) {
       return NextResponse.json({

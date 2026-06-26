@@ -323,14 +323,20 @@ export default function OrdersListClient({ orders }: { orders: OrderListItem[] }
 }
 
 function mapRow(row: Record<string, unknown>): OrderListItem {
+  const source = row.source != null ? String(row.source) : null
+  // Keep in step with the server mapping: a converted quote awaiting card
+  // payment lives as "Draft" but is shown as "Pending" so it reads as a real
+  // (pending) sale rather than an abandoned draft.
+  const rawStatus = String(row.status)
+  const status = rawStatus === "Draft" && source === "quotation" ? "Pending" : rawStatus
   return {
     id:              String(row.id),
     orderNumber:     String(row.order_number),
     customerName:    String(row.customer_name),
     customerEmail:   String(row.customer_email),
     customerPhone:   row.customer_phone != null ? String(row.customer_phone) : null,
-    status:          String(row.status),
-    source:          row.source != null ? String(row.source) : null,
+    status,
+    source,
     total:           String(row.total),
     createdAt:       String(row.created_at),
     deliveryAddress: (row.delivery_address as Record<string, string>) ?? null,
