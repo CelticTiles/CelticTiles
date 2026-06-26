@@ -110,13 +110,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required checkout fields" }, { status: 400 })
     }
 
-    const authoritativeEmail = emailInput || session.userEmail?.toLowerCase() || null
+    const isOfflinePayment = paymentMethod === "offline_cash" || paymentMethod === "card_instore" || paymentMethod === "bank_transfer"
+    const isQuoteMode = !!(body as any).quoteId && !!(body as any).quoteSnapshot
+
+    // When staff create a sale on behalf of a customer (converting a CRM quote
+    // or taking an offline / in-store payment), the logged-in user is NOT the
+    // buyer. Never fall back to the staff member's own email — use the customer's
+    // email carried over from the quote/form, or leave it blank. A normal
+    // customer checkout still falls back to their own session email.
+    const isStaffOnBehalf = isAdminOrSales && (isQuoteMode || isOfflinePayment)
+    const authoritativeEmail =
+      emailInput || (isStaffOnBehalf ? null : session.userEmail?.toLowerCase()) || null
     if (authoritativeEmail && !EMAIL_REGEX.test(authoritativeEmail)) {
       return NextResponse.json({ error: "Valid email is required if provided" }, { status: 400 })
     }
-
-    const isOfflinePayment = paymentMethod === "offline_cash" || paymentMethod === "card_instore" || paymentMethod === "bank_transfer"
-    const isQuoteMode = !!(body as any).quoteId && !!(body as any).quoteSnapshot
 
     // Quote mode: always use the passed quote snapshot — no cart lookup needed
     let snapshot;

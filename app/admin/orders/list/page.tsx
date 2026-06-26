@@ -58,8 +58,14 @@ export default async function OrdersListPage() {
   //   query = query.eq("created_by_user_id", session.userId)
   // }
 
+  // Hide "Draft" rows (abandoned anonymous web checkouts) — EXCEPT orders that
+  // came from a converted quotation. A quote-to-sale conversion is a deliberate
+  // staff action, so it must always be visible in Orders even while its card
+  // payment is still pending (or was never completed), rather than vanishing as
+  // a hidden Draft. Once payment confirms, the webhook / order-success self-heal
+  // promotes it to "Confirmed" as before.
   const { data: orders, error } = await query
-    .neq("status", "Draft")
+    .or("status.neq.Draft,source.eq.quotation")
     .order("created_at", { ascending: false })
     .returns<OrderRow[]>()
 
@@ -80,7 +86,10 @@ export default async function OrdersListPage() {
     customerName: o.customer_name,
     customerEmail: o.customer_email,
     customerPhone: o.customer_phone ?? null,
-    status: o.status,
+    // A converted quote whose card payment is still pending sits in "Draft".
+    // Show it as "Pending" so staff don't read a real sale as an abandoned draft;
+    // it flips to "Confirmed" once payment is verified.
+    status: o.status === "Draft" && (o as any).source === "quotation" ? "Pending" : o.status,
     source: (o as any).source ?? null,
     total: o.total,
     createdAt: o.created_at,
