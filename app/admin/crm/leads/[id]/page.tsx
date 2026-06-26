@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { ArrowLeft, Loader2, FileText, Mail, Phone, Calendar, MessageSquare, ArrowRight, Ticket as TicketIcon } from "lucide-react"
+import { ArrowLeft, Loader2, FileText, Mail, Phone, Calendar, MessageSquare, ArrowRight, Ticket as TicketIcon, MapPin, Pencil, Save, X } from "lucide-react"
 
 interface Lead {
   id: string
@@ -48,6 +48,55 @@ const STATUS_COLORS: Record<string, string> = {
   Converted: "bg-green-100 text-green-800",
 }
 
+interface Address {
+  street: string
+  city: string
+  county: string
+  postcode: string
+}
+
+const EMPTY_ADDRESS: Address = { street: "", city: "", county: "", postcode: "" }
+
+// The lead's structured address is stored on the customer record within the
+// `message` field using the convention: "Address: street, city, county, postcode".
+// These helpers keep that single source of truth in sync across the UI and the
+// "Create Quote from Lead" flow which also reads the address from there.
+function parseAddress(message: string | null): Address {
+  if (!message) return { ...EMPTY_ADDRESS }
+  const match = message.match(/Address:\s*([^\n]+)/i)
+  if (!match?.[1]) return { ...EMPTY_ADDRESS }
+  const parts = match[1].split(",").map(p => p.trim())
+  return {
+    street: parts[0] || "",
+    city: parts[1] || "",
+    county: parts[2] || "",
+    postcode: parts[3] || "",
+  }
+}
+
+function stripAddress(message: string | null): string {
+  if (!message) return ""
+  return message.replace(/Address:\s*[^\n]+\n*/i, "").trim()
+}
+
+function buildMessage(message: string | null, addr: Address): string | null {
+  const base = stripAddress(message)
+  const value = [addr.street, addr.city, addr.county, addr.postcode]
+    .map(p => p.trim())
+    .filter(Boolean)
+    .join(", ")
+  const addressLine = value ? `Address: ${value}` : ""
+  const combined = [addressLine, base].filter(Boolean).join("\n\n")
+  return combined || null
+}
+
+function formatAddress(addr: Address): string {
+  return [addr.street, addr.city, addr.county, addr.postcode]
+    .map(p => p.trim())
+    .filter(Boolean)
+    .join(", ")
+}
+
 export default function LeadDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -64,6 +113,11 @@ export default function LeadDetailPage() {
   const [followUpDate, setFollowUpDate] = useState("")
   const [note, setNote] = useState("")
   const [isAddingNote, setIsAddingNote] = useState(false)
+
+  const [address, setAddress] = useState<Address>(EMPTY_ADDRESS)
+  const [addressDraft, setAddressDraft] = useState<Address>(EMPTY_ADDRESS)
+  const [isEditingAddress, setIsEditingAddress] = useState(false)
+  const [isSavingAddress, setIsSavingAddress] = useState(false)
 
   useEffect(() => {
     fetchLead()
@@ -93,6 +147,7 @@ export default function LeadDetailPage() {
       setLead(data.lead)
       setStatus(data.lead.status)
       setFollowUpDate(data.lead.next_follow_up_date ?? "")
+      setAddress(parseAddress(data.lead.message))
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to load lead")
     } finally {
@@ -201,6 +256,35 @@ export default function LeadDetailPage() {
     }
   }
 
+  const handleStartEditAddress = () => {
+    setAddressDraft(address)
+    setIsEditingAddress(true)
+  }
+
+  const handleSaveAddress = async () => {
+    if (!lead) return
+    setIsSavingAddress(true)
+    try {
+      const newMessage = buildMessage(lead.message, addressDraft)
+      const res = await fetch("/api/admin/crm/leads", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: lead.id, message: newMessage }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setLead(prev => prev ? { ...prev, message: newMessage } : prev)
+      setAddress(addressDraft)
+      setIsEditingAddress(false)
+      toast.success("Address updated")
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update address")
+    } finally {
+      setIsSavingAddress(false)
+    }
+  }
+
   const handleAddNote = async () => {
     if (!note.trim() || !lead) return
     setIsAddingNote(true)
@@ -269,22 +353,99 @@ export default function LeadDetailPage() {
                 <span>Received {format(new Date(lead.created_at), "dd MMM yyyy")}</span>
               </div>
               
-              {/* Parse and Display Address if present in lead message */}
-              {(() => {
-                if (!lead.message) return null
-                // Typical format: "Address: 123 Street Name, Dublin, County Dublin, D01 X2Y3"
-                // Let's check if the message contains "Address:" prefix or look for it
-                const addressMatch = lead.message.match(/Address:\s*([^\n]+)/i)
-                if (addressMatch && addressMatch[1]) {
-                  return (
-                    <div className="pt-2 border-t">
-                      <p className="text-xs text-muted-foreground mb-1 font-semibold uppercase tracking-wider">Address</p>
-                      <p className="text-sm bg-muted/30 p-2 rounded whitespace-pre-wrap">{addressMatch[1].trim()}</p>
+              {/* Address — editable, saved directly to the lead/customer record */}
+              <div className="pt-2 border-t">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5" /> Address
+                  </p>
+                  {!isEditingAddress && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-primary hover:bg-primary/5"
+                      onClick={handleStartEditAddress}
+                    >
+                      <Pencil className="w-3.5 h-3.5 mr-1" />
+                      {formatAddress(address) ? "Edit Address" : "Add Address"}
+                    </Button>
+                  )}
+                </div>
+
+                {isEditingAddress ? (
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="addr-street" className="text-xs">Street</Label>
+                      <Input
+                        id="addr-street"
+                        value={addressDraft.street}
+                        onChange={e => setAddressDraft(prev => ({ ...prev, street: e.target.value }))}
+                        placeholder="123 Street Name"
+                        className="h-8 text-sm"
+                      />
                     </div>
-                  )
-                }
-                return null
-              })()}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="addr-city" className="text-xs">City / Town</Label>
+                        <Input
+                          id="addr-city"
+                          value={addressDraft.city}
+                          onChange={e => setAddressDraft(prev => ({ ...prev, city: e.target.value }))}
+                          placeholder="Dublin"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="addr-county" className="text-xs">County</Label>
+                        <Input
+                          id="addr-county"
+                          value={addressDraft.county}
+                          onChange={e => setAddressDraft(prev => ({ ...prev, county: e.target.value }))}
+                          placeholder="County Dublin"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="addr-postcode" className="text-xs">Postcode / Eircode</Label>
+                      <Input
+                        id="addr-postcode"
+                        value={addressDraft.postcode}
+                        onChange={e => setAddressDraft(prev => ({ ...prev, postcode: e.target.value }))}
+                        placeholder="D01 X2Y3"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleSaveAddress}
+                        disabled={isSavingAddress}
+                        className="h-8 neu-raised border-transparent text-white text-xs"
+                      >
+                        {isSavingAddress ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                        Save
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsEditingAddress(false)}
+                        disabled={isSavingAddress}
+                        className="h-8 text-xs"
+                      >
+                        <X className="h-3.5 w-3.5 mr-1" /> Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm bg-muted/30 p-2 rounded whitespace-pre-wrap">
+                    {formatAddress(address) || <span className="text-muted-foreground italic">No address on file</span>}
+                  </p>
+                )}
+              </div>
 
               <div className="pt-2 border-t">
                 <span className="text-xs text-muted-foreground capitalize">Source: {lead.source}</span>
@@ -309,31 +470,15 @@ export default function LeadDetailPage() {
                 className="w-full neu-raised border-transparent text-white"
               >
                 {(() => {
-                  let street = ""
-                  let city = ""
-                  let state = ""
-                  let postcode = ""
-                  if (lead.message) {
-                    const addressMatch = lead.message.match(/Address:\s*([^\n]+)/i)
-                    if (addressMatch && addressMatch[1]) {
-                      const parts = addressMatch[1].split(",").map(p => p.trim())
-                      // Parts order: Street, City, State/County, Postcode/Pincode
-                      street = parts[0] || ""
-                      city = parts[1] || ""
-                      state = parts[2] || ""
-                      postcode = parts[3] || ""
-                    }
-                  }
-                  
                   const queryParams = new URLSearchParams({
                     name: lead.name,
                     email: lead.email || "",
                     phone: lead.phone || "",
                     lead_id: lead.id,
-                    street,
-                    city,
-                    state,
-                    postcode
+                    street: address.street,
+                    city: address.city,
+                    state: address.county,
+                    postcode: address.postcode
                   })
 
                   return (
