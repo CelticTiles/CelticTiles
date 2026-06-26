@@ -37,13 +37,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { name, email, phone, message, source, merge } = await req.json()
-    if (!name || !email) {
-      return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
+    if (!name) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
     const supabase = await createServerSupabase()
-    const orFilter = phone ? `email.eq.${email},phone.eq.${phone}` : `email.eq.${email}`
-    const { data: existing } = await (supabase as any)
-      .from('leads').select('id, name').or(orFilter).maybeSingle()
+    
+    let existing = null;
+    if (email || phone) {
+      const orFilter = [
+        email ? `email.eq.${email}` : null,
+        phone ? `phone.eq.${phone}` : null
+      ].filter(Boolean).join(',')
+      const { data } = await (supabase as any)
+        .from('leads').select('id, name').or(orFilter).maybeSingle()
+      existing = data
+    }
 
     if (existing) {
       if (merge) {

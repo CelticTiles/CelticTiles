@@ -12,16 +12,16 @@ export async function POST(req: NextRequest) {
     const { name, email, phone, message } = await req.json()
 
     // Validate required fields
-    if (!name || !email || !message) {
+    if (!name || !message) {
       return NextResponse.json(
-        { error: 'Name, email, and message are required.' },
+        { error: 'Name and message are required.' },
         { status: 400 }
       )
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    if (email && !emailRegex.test(email)) {
       return NextResponse.json(
         { error: 'Please provide a valid email address.' },
         { status: 400 }
@@ -97,33 +97,35 @@ export async function POST(req: NextRequest) {
       })
 
       // Auto-reply to the customer
-      await transporter.sendMail({
-        from: `"Celtic Tiles" <${env('SMTP_USER')}>`,
-        to: email,
-        subject: `Thank you for contacting Celtic Tiles`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: #8B1A1A; padding: 20px; border-radius: 12px 12px 0 0;">
-              <h1 style="color: white; margin: 0; font-size: 22px;">Thank You, ${name}!</h1>
+      if (email) {
+        await transporter.sendMail({
+          from: `"Celtic Tiles" <${env('SMTP_USER')}>`,
+          to: email,
+          subject: `Thank you for contacting Celtic Tiles`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: #8B1A1A; padding: 20px; border-radius: 12px 12px 0 0;">
+                <h1 style="color: white; margin: 0; font-size: 22px;">Thank You, ${name}!</h1>
+              </div>
+              <div style="background: #f8f9fa; padding: 24px; border: 1px solid #e9ecef; border-radius: 0 0 12px 12px;">
+                <p style="color: #212529; line-height: 1.8; font-size: 15px;">
+                  We have received your message and will get back to you soon.
+                </p>
+                <p style="color: #495057; line-height: 1.8; font-size: 14px;">
+                  If your matter is urgent, please call us at <strong>+353 14090558</strong>.
+                </p>
+                <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;" />
+                <p style="color: #868e96; font-size: 13px;">
+                  <strong>Celtic Tiles</strong><br/>
+                  Besides AXA insurance, Finches Industrial Park,<br/>
+                  Long Mile Rd, Walkinstown<br/>
+                  Dublin, D12 FP74, Ireland
+                </p>
+              </div>
             </div>
-            <div style="background: #f8f9fa; padding: 24px; border: 1px solid #e9ecef; border-radius: 0 0 12px 12px;">
-              <p style="color: #212529; line-height: 1.8; font-size: 15px;">
-                We have received your message and will get back to you soon.
-              </p>
-              <p style="color: #495057; line-height: 1.8; font-size: 14px;">
-                If your matter is urgent, please call us at <strong>+353 14090558</strong>.
-              </p>
-              <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;" />
-              <p style="color: #868e96; font-size: 13px;">
-                <strong>Celtic Tiles</strong><br/>
-                Besides AXA insurance, Finches Industrial Park,<br/>
-                Long Mile Rd, Walkinstown<br/>
-                Dublin, D12 FP74, Ireland
-              </p>
-            </div>
-          </div>
-        `,
-      })
+          `,
+        })
+      }
     } catch (emailErr) {
       console.error('SMTP Error:', emailErr)
       // We still return success if the lead was saved but email failed, 

@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2, Plus, Search, LayoutGrid, List as ListIcon, Calendar, MessageSquare, Clock, Users2, Download, AlertCircle } from "lucide-react"
@@ -498,6 +498,7 @@ function TicketsContent() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create New Task</DialogTitle>
+            <DialogDescription className="hidden">Fill the details to create a new task.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -631,6 +632,7 @@ function TicketsContent() {
       {/* Details Modal */}
       <Dialog open={!!selectedTicket} onOpenChange={(open) => !open && setSelectedTicket(null)}>
         <DialogContent className="sm:max-w-2xl bg-background p-0 overflow-hidden">
+          <DialogDescription className="hidden">Ticket details view</DialogDescription>
           {selectedTicket && (
             <div className="flex flex-col max-h-[85vh]">
               {/* Header */}

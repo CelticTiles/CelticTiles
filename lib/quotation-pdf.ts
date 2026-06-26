@@ -176,8 +176,11 @@ function drawFooter(doc: jsPDF, quote: Quotation, pageNum: number, totalPages: n
     const subtotal = itemsTotal - itemsVat
     const baseAmountBeforeDiscount = subtotal + vatAmount
 
-    let quoteDiscount = 0
-    if (quote.discount_enabled && quote.discount_percentage) {
+    let derivedDiscount = itemsTotal - safeNumber(quote.total)
+    derivedDiscount = Math.round(derivedDiscount * 100) / 100
+
+    let quoteDiscount = derivedDiscount > 0 ? derivedDiscount : 0
+    if (quoteDiscount === 0 && quote.discount_enabled && quote.discount_percentage) {
       quoteDiscount = itemsTotal * (quote.discount_percentage / 100)
     }
 
@@ -185,7 +188,7 @@ function drawFooter(doc: jsPDF, quote: Quotation, pageNum: number, totalPages: n
     lines.push(["Subtotal", `€ ${subtotal.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
     lines.push(["VAT Total", `€ ${vatAmount.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
     if (quoteDiscount > 0) {
-      lines.push(["Quote Discount", `-€ ${quoteDiscount.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
+      lines.push(["Discount", `-€ ${quoteDiscount.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
     }
     lines.push(["Total", `€ ${safeNumber(quote.total).toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`])
 

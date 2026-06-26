@@ -205,8 +205,8 @@ export default function LeadsListPage() {
   }
 
   const handleAddLead = async (mergeExisting = false) => {
-    if (!addForm.name || !addForm.email) {
-      toast.error("Name and email are required")
+    if (!addForm.name) {
+      toast.error("Name is required")
       return
     }
     setIsAdding(true)
@@ -460,7 +460,7 @@ export default function LeadsListPage() {
               <Input value={addForm.name} onChange={e => setAddForm(p => ({ ...p, name: e.target.value }))} placeholder="John Doe" />
             </div>
             <div className="space-y-1.5">
-              <Label>Email *</Label>
+              <Label>Email</Label>
               <Input type="email" value={addForm.email} onChange={e => setAddForm(p => ({ ...p, email: e.target.value }))} placeholder="john@example.com" />
             </div>
             <div className="space-y-1.5">

@@ -100,8 +100,12 @@ export default function LoginClient() {
                 setIsLoading(false)
                 
                 // Redirect based on role
-                if (roleName === 'admin' || roleName === 'sales' || roleName === 'inventory') {
+                if (roleName === 'admin') {
                     window.location.href = '/admin/dashboard'
+                } else if (roleName === 'sales') {
+                    window.location.href = '/admin/orders/list'
+                } else if (roleName === 'inventory') {
+                    window.location.href = '/admin/products/list'
                 } else {
                     window.location.href = '/'
                 }

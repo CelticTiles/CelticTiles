@@ -110,9 +110,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required checkout fields" }, { status: 400 })
     }
 
-    const authoritativeEmail = emailInput || session.userEmail?.toLowerCase()
-    if (!authoritativeEmail || !EMAIL_REGEX.test(authoritativeEmail)) {
-      return NextResponse.json({ error: "Valid email is required" }, { status: 400 })
+    const authoritativeEmail = emailInput || session.userEmail?.toLowerCase() || null
+    if (authoritativeEmail && !EMAIL_REGEX.test(authoritativeEmail)) {
+      return NextResponse.json({ error: "Valid email is required if provided" }, { status: 400 })
     }
 
     const isOfflinePayment = paymentMethod === "offline_cash" || paymentMethod === "card_instore" || paymentMethod === "bank_transfer"

@@ -67,7 +67,7 @@ export function ContactFormClient() {
 
       <div>
         <label htmlFor="email" className="block text-sm font-bold text-slate-700 mb-2 ml-2">
-          Email *
+          Email
         </label>
         <input
           type="email"
@@ -76,7 +76,6 @@ export function ContactFormClient() {
           onChange={handleChange}
           className="w-full px-6 py-4 rounded-2xl neu-inset bg-[#E5E9F0] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-slate-800 placeholder:text-slate-400"
           placeholder="Enter your email address"
-          required
           disabled={status === "loading"}
         />
       </div>

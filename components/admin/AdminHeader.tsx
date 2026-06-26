@@ -91,7 +91,7 @@ export function AdminHeader({ session }: AdminHeaderProps) {
               priority
             />
             <span className="hidden sm:inline-block text-sm font-semibold text-primary border-l border-gray-300 pl-3 ml-1">
-              Admin Portal
+              {user?.role === "sales" ? "Sales Portal" : user?.role === "inventory" ? "Warehouse Portal" : "Admin Portal"}
             </span>
           </Link>
 

@@ -45,7 +45,7 @@ interface NavItem {
 
 // Navigation items with role restrictions
 const allNavigation: NavItem[] = [
-  { name: "Dashboard",   href: "/admin/dashboard",              icon: LayoutDashboard },
+  { name: "Dashboard",   href: "/admin/dashboard",              icon: LayoutDashboard, adminOnly: true },
   { name: "Orders",      href: "/admin/orders/list",            icon: ShoppingBag,  noInventory: true },
   { name: "Quotations",  href: "/admin/quotations",             icon: FileText,     noInventory: true },
   { name: "Products",    href: "/admin/products/list",          icon: Package },
@@ -97,7 +97,7 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
       {/* Mobile Header */}
       <header className="lg:hidden shrink-0 z-30 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
         <h1 className="text-lg font-serif font-bold text-primary">
-          Celtic Tiles <span className="text-xs font-sans text-muted-foreground">{isAdmin ? "Admin" : isInventory ? "Warehouse" : "Staff"}</span>
+          Celtic Tiles <span className="text-xs font-sans text-muted-foreground">{isAdmin ? "Admin Portal" : isInventory ? "Warehouse Portal" : userRole === "sales" ? "Sales Portal" : "Staff Portal"}</span>
         </h1>
         <Button
           variant="ghost"
@@ -135,7 +135,7 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
             borderBottom: '1px solid hsl(var(--border) / 0.3)'
           }}>
             <h1 className="text-lg font-serif font-bold text-primary">
-              Celtic Tiles <span className="text-sm font-sans text-muted-foreground">{isAdmin ? "Admin" : isInventory ? "Warehouse" : "Staff"}</span>
+              Celtic Tiles <span className="text-sm font-sans text-muted-foreground">{isAdmin ? "Admin Portal" : isInventory ? "Warehouse Portal" : userRole === "sales" ? "Sales Portal" : "Staff Portal"}</span>
             </h1>
           </div>
 

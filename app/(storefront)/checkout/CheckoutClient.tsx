@@ -180,7 +180,7 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
             } = formData;
 
             // Validate required fields
-            if (!full_name || !email || (!isAdminOrSales && (!phone || !street || !city || !state || !pincode))) {
+            if (!full_name || (!isAdminOrSales && (!phone || !street || !city || !state || !pincode))) {
                 clearTimeout(timeoutId)
 
                 toast.error("Please fill in all required fields")
@@ -446,8 +446,8 @@ export default function CheckoutClient({ isLoggedIn, userRole, initialAddresses,
                                     <Input required placeholder="John Doe" name="full_name" value={formData.full_name} onChange={handleInputChange} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Email *</label>
-                                    <Input type="email" required placeholder="john@example.com" name="email" value={formData.email} onChange={handleInputChange} />
+                                    <label className="block text-sm font-medium mb-2">Email</label>
+                                    <Input type="email" placeholder="john@example.com" name="email" value={formData.email} onChange={handleInputChange} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-2">Phone {!isAdminOrSales && '*'}</label>
