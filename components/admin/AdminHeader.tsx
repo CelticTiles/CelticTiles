@@ -77,9 +77,9 @@ export function AdminHeader({ session }: AdminHeaderProps) {
     <header className="hidden lg:block sticky top-0 z-50 w-full border-b border-border bg-gray-50 shadow-sm">
       <div className="w-full px-4 sm:px-5 lg:px-6">
         <div className="flex h-16 items-center justify-between gap-4">
-          {/* Logo - Links to admin dashboard */}
+          {/* Logo - Links to role home */}
           <Link
-            href="/admin/dashboard"
+            href={user?.role === "sales" ? "/admin/orders/list" : user?.role === "inventory" ? "/admin/dashboard" : "/admin/dashboard"}
             className="flex items-center space-x-3 group flex-shrink-0"
           >
             <Image

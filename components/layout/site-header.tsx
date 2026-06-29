@@ -225,7 +225,7 @@ export function SiteHeader({
                       </div>
                       <div className="py-2">
                         {canAccessDashboard() && (
-                          <Link href="/admin/dashboard" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700 font-bold">
+                          <Link href={isSales() ? "/admin/orders/list" : "/admin/dashboard"} onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-5 py-2 hover:bg-white/40 transition-colors text-sm text-slate-700 font-bold">
                             <LayoutDashboard className="h-4 w-4 text-primary" /> Dashboard
                           </Link>
                         )}
@@ -412,7 +412,7 @@ export function SiteHeader({
                       </Link>
                       {canAccessDashboard() && (
                         <Link
-                          href="/admin/dashboard"
+                          href={isSales() ? "/admin/orders/list" : "/admin/dashboard"}
                           onClick={() => setIsMobileMenuOpen(false)}
                           className="flex items-center gap-3 px-4 py-3 rounded-xl text-primary font-bold hover:bg-white/40 transition-colors"
                         >

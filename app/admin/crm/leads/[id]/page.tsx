@@ -119,6 +119,10 @@ export default function LeadDetailPage() {
   const [isEditingAddress, setIsEditingAddress] = useState(false)
   const [isSavingAddress, setIsSavingAddress] = useState(false)
 
+  const [isEditingContact, setIsEditingContact] = useState(false)
+  const [isSavingContact, setIsSavingContact] = useState(false)
+  const [contactDraft, setContactDraft] = useState({ name: "", email: "", phone: "", message: "" })
+
   useEffect(() => {
     fetchLead()
     fetchLogs()
@@ -285,6 +289,51 @@ export default function LeadDetailPage() {
     }
   }
 
+  const handleStartEditContact = () => {
+    setContactDraft({
+      name: lead?.name || "",
+      email: lead?.email || "",
+      phone: lead?.phone || "",
+      message: lead?.message?.replace(/Address:\s*[^\n]+\n*/i, "").trim() || ""
+    })
+    setIsEditingContact(true)
+  }
+
+  const handleSaveContact = async () => {
+    if (!lead) return
+    setIsSavingContact(true)
+    try {
+      const newMessage = buildMessage(contactDraft.message, address)
+      const res = await fetch("/api/admin/crm/leads", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          id: lead.id, 
+          name: contactDraft.name,
+          email: contactDraft.email,
+          phone: contactDraft.phone,
+          message: newMessage 
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setLead(prev => prev ? { 
+        ...prev, 
+        name: contactDraft.name,
+        email: contactDraft.email,
+        phone: contactDraft.phone,
+        message: newMessage 
+      } : prev)
+      setIsEditingContact(false)
+      toast.success("Contact details updated")
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update details")
+    } finally {
+      setIsSavingContact(false)
+    }
+  }
+
   const handleAddNote = async () => {
     if (!note.trim() || !lead) return
     setIsAddingNote(true)
@@ -336,22 +385,98 @@ export default function LeadDetailPage() {
         {/* Left — Contact Info */}
         <div className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Contact Information</CardTitle></CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span>{lead.email}</span>
-              </div>
-              {lead.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <span>{lead.phone}</span>
-                </div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle>Contact Information</CardTitle>
+              {!isEditingContact && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleStartEditContact} 
+                  className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 -mr-2"
+                >
+                  <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit Details
+                </Button>
               )}
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span>Received {format(new Date(lead.created_at), "dd MMM yyyy")}</span>
-              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {isEditingContact ? (
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Name</Label>
+                    <Input 
+                      value={contactDraft.name} 
+                      onChange={e => setContactDraft(p => ({ ...p, name: e.target.value }))} 
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Email</Label>
+                    <Input 
+                      value={contactDraft.email} 
+                      onChange={e => setContactDraft(p => ({ ...p, email: e.target.value }))} 
+                      type="email"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Phone</Label>
+                    <Input 
+                      value={contactDraft.phone} 
+                      onChange={e => setContactDraft(p => ({ ...p, phone: e.target.value }))} 
+                      type="tel"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Message / Notes</Label>
+                    <Textarea 
+                      value={contactDraft.message} 
+                      onChange={e => setContactDraft(p => ({ ...p, message: e.target.value }))} 
+                      rows={3}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleSaveContact}
+                      disabled={isSavingContact}
+                      className="h-8 neu-raised border-transparent text-white text-xs"
+                    >
+                      {isSavingContact ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                      Save
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsEditingContact(false)}
+                      disabled={isSavingContact}
+                      className="h-8 text-xs"
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" /> Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span>{lead.email}</span>
+                  </div>
+                  {lead.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span>{lead.phone}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span>Received {format(new Date(lead.created_at), "dd MMM yyyy")}</span>
+                  </div>
+                </>
+              )}
               
               {/* Address — editable, saved directly to the lead/customer record */}
               <div className="pt-2 border-t">
@@ -450,7 +575,7 @@ export default function LeadDetailPage() {
               <div className="pt-2 border-t">
                 <span className="text-xs text-muted-foreground capitalize">Source: {lead.source}</span>
               </div>
-              {lead.message && (
+              {!isEditingContact && lead.message && (
                 <div className="pt-2 border-t">
                   <p className="text-xs text-muted-foreground mb-1">Message</p>
                   <p className="text-sm bg-muted/40 p-2 rounded whitespace-pre-wrap">

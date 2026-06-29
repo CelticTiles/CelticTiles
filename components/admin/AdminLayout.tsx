@@ -41,11 +41,12 @@ interface NavItem {
   adminOnly?: boolean      // admin only
   noInventory?: boolean    // admin + sales, not inventory
   inventoryOnly?: boolean  // inventory only
+  noSales?: boolean        // admin + inventory, not sales
 }
 
 // Navigation items with role restrictions
 const allNavigation: NavItem[] = [
-  { name: "Dashboard",   href: "/admin/dashboard",              icon: LayoutDashboard, adminOnly: true },
+  { name: "Dashboard",   href: "/admin/dashboard",              icon: LayoutDashboard, noSales: true },
   { name: "Orders",      href: "/admin/orders/list",            icon: ShoppingBag,  noInventory: true },
   { name: "Quotations",  href: "/admin/quotations",             icon: FileText,     noInventory: true },
   { name: "Products",    href: "/admin/products/list",          icon: Package },
@@ -76,7 +77,7 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
     if (isAdmin)     return allNavigation.filter(item => !item.inventoryOnly)
     if (isInventory) return allNavigation.filter(item => !item.adminOnly && !item.noInventory)
     // sales
-    return allNavigation.filter(item => !item.adminOnly && !item.inventoryOnly)
+    return allNavigation.filter(item => !item.adminOnly && !item.inventoryOnly && !item.noSales)
   }, [isAdmin, isInventory])
 
   // Close sidebar on route change (mobile)
@@ -96,9 +97,12 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
     <div className="h-screen flex flex-col overflow-hidden bg-background">
       {/* Mobile Header */}
       <header className="lg:hidden shrink-0 z-30 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
-        <h1 className="text-lg font-serif font-bold text-primary">
+        <Link
+          href={userRole === "sales" ? "/admin/orders/list" : userRole === "inventory" ? "/admin/dashboard" : "/admin/dashboard"}
+          className="text-lg font-serif font-bold text-primary hover:opacity-80 transition-opacity"
+        >
           Celtic Tiles <span className="text-xs font-sans text-muted-foreground">{isAdmin ? "Admin Portal" : isInventory ? "Warehouse Portal" : userRole === "sales" ? "Sales Portal" : "Staff Portal"}</span>
-        </h1>
+        </Link>
         <Button
           variant="ghost"
           size="sm"
@@ -134,9 +138,12 @@ export function AdminLayout({ children, userRole }: AdminLayoutProps) {
           <div className="hidden lg:block px-5 py-4" style={{
             borderBottom: '1px solid hsl(var(--border) / 0.3)'
           }}>
-            <h1 className="text-lg font-serif font-bold text-primary">
+            <Link
+              href={userRole === "sales" ? "/admin/orders/list" : "/admin/dashboard"}
+              className="text-lg font-serif font-bold text-primary hover:opacity-80 transition-opacity"
+            >
               Celtic Tiles <span className="text-sm font-sans text-muted-foreground">{isAdmin ? "Admin Portal" : isInventory ? "Warehouse Portal" : userRole === "sales" ? "Sales Portal" : "Staff Portal"}</span>
-            </h1>
+            </Link>
           </div>
 
           {/* Mobile close button */}

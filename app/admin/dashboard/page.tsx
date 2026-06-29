@@ -221,7 +221,304 @@ export default function AdminDashboardPage() {
     )
   }
 
-  // ── Admin / Sales Dashboard ────────────────────────────────────────────────
+  // ── Sales Dashboard ────────────────────────────────────────────────────────
+  if (user?.role === "sales") {
+    const r = metrics?.ranges[dateRange] ?? { total: 0, pending: 0, revenue: 0 }
+    const chartData = metrics?.charts[dateRange] ?? []
+
+    const kpis = [
+      {
+        title: "Total Orders",
+        value: r.total,
+        icon: ShoppingBag,
+        color: "text-blue-600",
+        bg: "bg-blue-50",
+        href: "/admin/orders/list",
+      },
+      {
+        title: "Revenue",
+        value: formatPrice(r.revenue),
+        icon: DollarSign,
+        color: "text-green-600",
+        bg: "bg-green-50",
+        href: null,
+      },
+      {
+        title: "Pending Orders",
+        value: r.pending,
+        icon: Clock,
+        color: "text-orange-600",
+        bg: "bg-orange-50",
+        href: "/admin/orders/list",
+      },
+      {
+        title: "CRM Conversion",
+        value: `${metrics?.crm?.conversionRate ?? 0}%`,
+        icon: TrendingUp,
+        color: "text-purple-600",
+        bg: "bg-purple-50",
+        href: "/admin/crm/leads",
+      },
+    ]
+
+    return (
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-serif font-bold text-primary">Sales Dashboard</h1>
+            <p className="text-muted-foreground mt-1">Welcome back! Here&apos;s your sales overview.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {(["today", "7d", "30d", "all"] as DateRange[]).map((range) => (
+              <Button
+                key={range}
+                size="sm"
+                variant={dateRange === range ? "default" : "outline"}
+                onClick={() => setDateRange(range)}
+              >
+                {range === "today" ? "Today" : range === "7d" ? "7 Days" : range === "30d" ? "30 Days" : "All Time"}
+              </Button>
+            ))}
+            <Button asChild size="sm" className="ml-1">
+              <Link href="/admin/orders/list">
+                <ShoppingBag className="w-4 h-4 mr-2" /> All Orders
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {kpis.map((kpi) => (
+            <Card key={kpi.title} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{kpi.title}</p>
+                    <p className="text-3xl font-bold mt-2">{kpi.value}</p>
+                    {kpi.href && (
+                      <Link href={kpi.href} className="text-xs text-primary mt-2 block hover:underline">
+                        View details →
+                      </Link>
+                    )}
+                  </div>
+                  <div className={`p-3 rounded-xl ${kpi.bg} ${kpi.color}`}>
+                    <kpi.icon className="w-6 h-6" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* CRM Pipeline */}
+        {metrics?.crm && (
+          <div>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Users2 className="w-5 h-5 text-blue-600" /> CRM Pipeline
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Total Leads</p>
+                      <p className="text-3xl font-bold mt-2">{metrics.crm.total}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-blue-50 text-blue-600">
+                      <Users2 className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <Link href="/admin/crm/leads" className="text-xs text-primary mt-2 block hover:underline">
+                    View all leads →
+                  </Link>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Quotes Created</p>
+                      <p className="text-3xl font-bold mt-2">{metrics.crm.quoted}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-purple-50 text-purple-600">
+                      <ShoppingBag className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <Link href="/admin/quotations" className="text-xs text-primary mt-2 block hover:underline">
+                    View quotations →
+                  </Link>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Converted Leads</p>
+                      <p className="text-3xl font-bold mt-2">{metrics.crm.converted}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {metrics.crm.conversionRate}% conversion rate
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-green-50 text-green-600">
+                      <TrendingUp className="w-6 h-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Revenue Trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {chartData.length ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis />
+                    <Tooltip formatter={(v) => formatPrice(v as number)} />
+                    <Line
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#16a34a"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-center text-muted-foreground py-16">No data for this period</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Orders Over Time</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {chartData.length ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" name="Orders" fill="#3b82f6" isAnimationActive={false} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-center text-muted-foreground py-16">No data for this period</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Orders + Follow-ups */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Recent Orders</CardTitle>
+              <Button asChild size="sm">
+                <Link href="/admin/orders/list">View All</Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {!metrics?.recentOrders?.length ? (
+                <p className="text-center text-muted-foreground py-8">No orders yet</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Order #</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Customer</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Total</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metrics.recentOrders.slice(0, 6).map((order) => (
+                        <tr
+                          key={order.id}
+                          className="border-b border-border hover:bg-accent/5 cursor-pointer transition-colors"
+                        >
+                          <td className="py-3 px-4">
+                            <Link
+                              href={`/admin/orders/${order.id}`}
+                              className="text-primary hover:underline font-medium"
+                            >
+                              {order.orderNumber}
+                            </Link>
+                          </td>
+                          <td className="py-3 px-4 text-sm">{order.customerName}</td>
+                          <td className="py-3 px-4 text-sm font-medium">{formatPrice(order.total)}</td>
+                          <td className="py-3 px-4">
+                            <StatusBadge status={order.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-orange-600" />
+                Follow-ups Due Today
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!metrics?.upcomingFollowUps?.length ? (
+                <div className="text-center py-8">
+                  <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm text-muted-foreground">All caught up!</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {metrics.upcomingFollowUps.map((lead) => (
+                    <div key={lead.id} className="p-3 border rounded-lg bg-accent/5">
+                      <div className="flex justify-between items-start mb-1">
+                        <Link
+                          href={`/admin/crm/leads/${lead.id}`}
+                          className="font-semibold text-sm hover:underline"
+                        >
+                          {lead.name}
+                        </Link>
+                        <StatusBadge status={lead.status} />
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Phone className="w-3 h-3" />
+                        {lead.phone || lead.email}
+                      </div>
+                    </div>
+                  ))}
+                  <Button variant="outline" size="sm" className="w-full" asChild>
+                    <Link href="/admin/crm/leads">View All Leads</Link>
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Admin Dashboard ────────────────────────────────────────────────────────
   const r = metrics?.ranges[dateRange] ?? { total: 0, pending: 0, revenue: 0 }
   const chartData = metrics?.charts[dateRange] ?? []
 
