@@ -49,10 +49,10 @@ export default async function TeamListPage() {
         created_at: member.created_at
       }))
       
-      // Filter for admin and sales only (case-insensitive)
+      // Filter for admin, sales, and inventory only (case-insensitive)
       initialTeamMembers = transformed.filter((m: any) => {
         const role = m.role?.toLowerCase() || ''
-        return role === 'admin' || role === 'sales'
+        return role === 'admin' || role === 'sales' || role === 'inventory'
       })
     }
   } catch (err: any) {

@@ -8,7 +8,7 @@ export interface TeamMember {
   email: string
   full_name: string | null
   name: string // Mapped property
-  role: 'admin' | 'sales'
+  role: 'admin' | 'sales' | 'inventory'
   permissions: string[] | null
   created_at: string
 }
@@ -59,7 +59,7 @@ export function useTeamMembers() {
       if (mountedRef.current) {
         setTeamMembers(transformed.filter((m: any) => {
           const role = m.role?.toLowerCase() || ''
-          return role === 'admin' || role === 'sales'
+          return role === 'admin' || role === 'sales' || role === 'inventory'
         }))
       }
     } catch (err: any) {

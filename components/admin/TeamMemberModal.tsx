@@ -30,7 +30,7 @@ interface TeamMemberModalProps {
   member?: TeamMember | null
 }
 
-type Role = "admin" | "sales"
+type Role = "admin" | "sales" | "inventory"
 
 interface TeamMemberFormState {
   full_name: string
@@ -192,8 +192,9 @@ export function TeamMemberModal({ isOpen, onClose, onRefetch, member }: TeamMemb
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="sales">Sales</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="sales">Sales</SelectItem>
+                <SelectItem value="inventory">Inventory</SelectItem>
               </SelectContent>
             </Select>
           </div>
